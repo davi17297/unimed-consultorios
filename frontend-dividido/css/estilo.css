@@ -1,0 +1,195 @@
+:root {
+    --bg: #FAFAF9;
+    --surface: #FFFFFF;
+    --border: #E7EBE9;
+    --border-strong: #D8DEDB;
+    --ink-900: #0E1613;
+    --ink-600: #566268;
+    --ink-400: #8B968F;
+    --green-900: #00351F;
+    --green-700: #00693E;
+    --green-600: #00834E;
+    --green-500: #00A868;
+    --green-100: #E4F5EC;
+    --green-50: #F1FAF5;
+    --amber-600: #B3720A;
+    --amber-100: #FCF1DA;
+    --red-600: #C13B30;
+    --red-100: #FBE9E7;
+    --shadow-card: 0 1px 2px rgba(14,22,19,.04), 0 1px 1px rgba(14,22,19,.03);
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink-900);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px; line-height: 1.5;
+  }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; }
+
+  .layout { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar { width: 224px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  .sidebar .brand { display: flex; align-items: center; gap: 8px; padding: 20px 20px 16px; }
+  .sidebar .brand .mark { width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, var(--green-500), var(--green-700)); flex-shrink: 0; }
+  .sidebar .brand .texto { font-weight: 700; font-size: 13px; color: var(--green-900); letter-spacing: -.01em; }
+  .sidebar .brand .sub { font-size: 11px; color: var(--ink-400); margin-top: 1px; }
+  .sidebar nav { padding: 4px 10px; display: flex; flex-direction: column; gap: 1px; }
+  .sidebar .grupo-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-400); padding: 14px 10px 6px; font-weight: 600; }
+  .sidebar a.nav-link {
+    display: flex; align-items: center; gap: 10px; background: none; border: none; text-align: left;
+    padding: 8px 10px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--ink-600); cursor: pointer;
+    text-decoration: none;
+  }
+  .sidebar a.nav-link .ic { width: 16px; text-align: center; font-size: 13px; opacity: .8; }
+  .sidebar a.nav-link:hover { background: var(--bg); color: var(--ink-900); }
+  .sidebar a.nav-link.active { background: var(--green-50); color: var(--green-700); font-weight: 600; }
+
+  /* ---------- Área principal ---------- */
+  .principal { flex: 1; min-width: 0; }
+  .topbar { display: flex; align-items: center; gap: 14px; padding: 16px 28px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .topbar .titulo { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  .topbar .data { font-size: 12px; color: var(--ink-400); }
+  .busca-wrap { flex: 1; max-width: 340px; margin-left: 10px; position: relative; }
+  .busca-wrap input {
+    width: 100%; padding: 7px 10px 7px 30px; border: 1px solid var(--border); border-radius: 7px;
+    font-size: 13px; background: var(--bg); color: var(--ink-900);
+  }
+  .busca-wrap input:focus { outline: none; border-color: var(--green-500); background: var(--surface); }
+  .busca-wrap .lupa { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--ink-400); }
+  .topbar select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; background: var(--surface); color: var(--ink-600); }
+  .topbar .acoes { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .btn {
+    border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink-900);
+    padding: 7px 12px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn-primario { background: var(--green-700); border-color: var(--green-700); color: white; }
+  .btn-primario:hover { background: var(--green-900); }
+
+  main { padding: 28px; max-width: 1280px; margin: 0 auto; }
+  .oculto { display: none; }
+  section > .cabecalho { margin-bottom: 18px; }
+  section > .cabecalho h1 { font-size: 18px; margin: 0 0 2px; letter-spacing: -.01em; }
+  section > .cabecalho p { margin: 0; font-size: 13px; color: var(--ink-400); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); }
+  .card-pad { padding: 18px 20px; }
+  .card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-400); font-weight: 600; margin: 0 0 14px; }
+  .vazio { color: var(--ink-400); font-size: 13px; padding: 10px 0; }
+
+  /* ---------- Cards de indicadores ---------- */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .stat-card { padding: 18px 20px; }
+  .stat-card .topo { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .stat-card .rotulo { font-size: 12px; color: var(--ink-400); font-weight: 500; }
+  .stat-card .badge-ic { width: 26px; height: 26px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .stat-card .valor { font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: var(--ink-900); }
+  .stat-card .rodape { font-size: 12px; color: var(--ink-400); margin-top: 4px; }
+  .ic-verde { background: var(--green-100); }
+  .ic-ambar { background: var(--amber-100); }
+  .ic-vermelho { background: var(--red-100); }
+  .ic-neutro { background: var(--bg); }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill-verde { background: var(--green-100); color: var(--green-700); }
+  .pill-ambar { background: var(--amber-100); color: var(--amber-600); }
+  .pill-vermelho { background: var(--red-100); color: var(--red-600); }
+  .pill-neutro { background: var(--bg); color: var(--ink-600); border: 1px solid var(--border); }
+
+  /* ---------- Linha do meio: gráfico + disponibilidade + alertas ---------- */
+  .linha-meio { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 14px; margin-bottom: 14px; align-items: stretch; }
+  @media (max-width: 1000px) { .linha-meio { grid-template-columns: 1fr; } }
+  .linha-meio .card-pad { max-height: 380px; overflow-y: auto; }
+  .linha-meio .card-pad h3 { position: sticky; top: 0; background: var(--surface); padding-top: 2px; margin-top: -2px; z-index: 1; }
+
+  /* Gráfico de barras (elemento de assinatura) */
+  .grafico-barras { display: flex; align-items: flex-end; gap: 14px; height: 148px; padding-top: 6px; }
+  .barra-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; cursor: pointer; border-radius: 8px; padding: 4px; }
+  .barra-col:hover { background: var(--bg); }
+  .barra-col .numero { font-size: 11px; color: var(--ink-400); font-weight: 600; }
+  .barra-col .haste { width: 100%; max-width: 30px; border-radius: 5px 5px 3px 3px; background: var(--green-100); position: relative; transition: height .25s ease, background .15s ease; }
+  .barra-col.selecionado .haste { background: linear-gradient(180deg, var(--green-500), var(--green-700)); }
+  .barra-col .rotulo-dia { font-size: 11px; color: var(--ink-400); font-weight: 500; }
+  .barra-col.selecionado .rotulo-dia { color: var(--green-700); font-weight: 700; }
+  .barra-col.selecionado .numero { color: var(--green-700); }
+
+  .turno-bloco { margin-bottom: 14px; }
+  .turno-bloco:last-child { margin-bottom: 0; }
+  .turno-bloco .cab { display: flex; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-400); font-weight: 600; margin-bottom: 6px; }
+  .turno-bloco ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .turno-bloco li { font-size: 13px; padding: 5px 8px; border-radius: 6px; background: var(--green-50); color: var(--ink-900); display: flex; align-items: center; gap: 6px; }
+  .ponto { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .ponto-verde { background: var(--green-500); }
+  .ponto-vermelho { background: var(--red-600); }
+  .ponto-ambar { background: var(--amber-600); }
+
+  .alerta-item { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; gap: 8px; }
+  .alerta-item:last-child { border-bottom: none; }
+  .alerta-item .conteudo .titulo { font-weight: 600; font-size: 13px; }
+  .alerta-item .conteudo .detalhe { color: var(--ink-400); font-size: 12px; margin-top: 1px; }
+
+  /* ---------- Tabela refinada ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-400); font-weight: 600; padding: 0 14px 10px; border-bottom: 1px solid var(--border); }
+  tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--bg); }
+  .nome-sala { font-weight: 600; color: var(--ink-900); }
+  .nome-sala .sub { font-weight: 400; color: var(--ink-400); font-size: 12px; display: block; margin-top: 1px; }
+  .barra-mini-track { background: var(--border); border-radius: 5px; overflow: hidden; height: 6px; width: 90px; display: inline-block; vertical-align: middle; margin-right: 8px; }
+  .barra-mini-fill { height: 100%; border-radius: 5px; }
+  .tabela-card { padding: 6px 6px 10px; }
+  .tabela-card .cab-tabela { display: flex; justify-content: space-between; align-items: center; padding: 14px 14px 12px; }
+  .tabela-card .cab-tabela h3 { margin: 0; }
+  .acao-icone { border: none; background: none; color: var(--ink-400); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 5px; }
+  .acao-icone:hover { background: var(--red-100); color: var(--red-600); }
+
+  /* ---------- Formulários ---------- */
+  form.inline { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  input, select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; color: var(--ink-900); background: var(--surface); }
+  #seletor-sala { min-width: 280px; }
+  input:focus, select:focus { outline: none; border-color: var(--green-500); }
+
+  /* ---------- Grade de disponibilidade (planilha) ---------- */
+  table.grade { table-layout: fixed; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table.grade th, table.grade td { border: 1px solid var(--border); text-align: center; vertical-align: top; padding: 8px; }
+  table.grade td.dia-col { background: var(--bg); font-weight: 600; text-align: left; width: 120px; }
+  table.grade td.vazia { background: #FCFCFB; color: var(--border-strong); }
+  table.grade td.celula-livre { background: var(--green-50); }
+  table.grade td.celula-ocupada { background: var(--red-100); }
+  table.grade select { width: 100%; font-size: 12px; background: transparent; }
+  table.grade input.obs { width: 100%; font-size: 11px; margin-top: 4px; color: var(--ink-400); border: none; border-top: 1px dashed var(--border); border-radius: 0; padding: 3px 2px; background: none; }
+  .resumo-grade { font-size: 12px; color: var(--ink-600); margin-bottom: 14px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .resumo-grade strong { color: var(--ink-900); }
+
+  /* Lista com altura máxima e rolagem interna (ex: Especialidades, Médicos) */
+  .lista-rolavel { max-height: 320px; overflow-y: auto; }
+
+  /* Seletor de especialidades permitidas (checkboxes) no cadastro de consultório */
+  .picker-especialidades {
+    border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 5px; max-height: 116px; overflow-y: auto;
+    min-width: 210px; background: var(--surface);
+  }
+  .opcao-especialidade { display: flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; color: var(--ink-900); }
+  .opcao-especialidade input { cursor: pointer; margin: 0; }
+
+  /* Linha de cabeçalho de grupo (Sala de Espera) nas tabelas */
+  tr.linha-grupo td {
+    background: var(--green-50); color: var(--green-900); font-weight: 600; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .03em; padding: 9px 14px;
+  }
+  tr.linha-grupo .contagem-grupo { font-weight: 500; text-transform: none; color: var(--green-700); opacity: .8; letter-spacing: normal; }
+  /* Gráfico de barras (elemento de assinatura) */
+  .grafico-barras { display: flex; align-items: flex-end; gap: 14px; height: 148px; padding-top: 6px; }
+  .barra-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end; cursor: pointer; border-radius: 8px; padding: 4px; }
+  .barra-col:hover { background: var(--bg); }
+  .barra-col .numero { font-size: 11px; color: var(--ink-400); font-weight: 600; }
+  .barra-col .haste { width: 100%; max-width: 30px; border-radius: 5px 5px 3px 3px; background: var(--green-100); position: relative; transition: height .25s ease, background .15s ease; }
+  .barra-col.selecionado .haste { background: linear-gradient(180deg, var(--green-500), var(--green-700)); }
+  .barra-col .rotulo-dia { font-size: 11px; color: var(--ink-400); font-weight: 500; }
+  .barra-col.selecionado .rotulo-dia { color: var(--green-700); font-weight: 700; }
+  .barra-col.selecionado .numero { color: var(--green-700); }

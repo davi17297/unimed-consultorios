@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatórios — Unimed Goiânia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <div class="texto">Unimed Goiânia</div>
+        <div class="sub">Consultórios · CEU</div>
+      </div>
+    </div>
+    <nav>
+      <div class="grupo-label">Visão geral</div>
+      <a class="nav-link" href="dashboard.html"><span class="ic">◧</span> Dashboard</a>
+      <a class="nav-link" href="disponibilidade.html"><span class="ic">▤</span> Disponibilidade</a>
+      <div class="grupo-label">Cadastros</div>
+      <a class="nav-link" href="consultorios.html"><span class="ic">▢</span> Consultórios</a>
+      <a class="nav-link" href="profissionais.html"><span class="ic">☺</span> Profissionais</a>
+      <div class="grupo-label">Gestão</div>
+      <a class="nav-link active" href="relatorios.html"><span class="ic">▲</span> Relatórios</a>
+      <a class="nav-link" href="importar.html"><span class="ic">⇩</span> Importar Excel</a>
+      <a class="nav-link" href="config.html"><span class="ic">⚙</span> Configurações</a>
+    </nav>
+  </aside>
+
+  <div class="principal">
+    <div class="topbar">
+      <span class="titulo">Coordenação de Consultórios</span>
+      <span class="data" id="data-hoje"></span>
+      <div class="busca-wrap">
+        <span class="lupa">⌕</span>
+        <input type="search" placeholder="Buscar" disabled>
+      </div>
+      <select id="seletor-mes">
+        <option>Junho</option><option>Julho</option><option>Agosto</option>
+      </select>
+      <div class="acoes">
+        <span class="data" id="hora-atualizacao"></span>
+        <button class="btn btn-primario" onclick="atualizarTudo()">Atualizar</button>
+      </div>
+    </div>
+
+    <main>
+      <section id="pagina-relatorios">
+        <div class="cabecalho"><h1>Relatórios</h1><p>Evolução mensal de ocupação</p></div>
+        <div class="card card-pad vazio">
+          Relatórios mensais (histórico de ocupação, como a planilha de % por mês) entram quando o
+          backend/banco estiver no ar — aí passamos a guardar um snapshot por mês em vez de só o
+          estado atual.
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="js/dados.js"></script>
+<script src="js/layout.js"></script>
+</body>
+</html>

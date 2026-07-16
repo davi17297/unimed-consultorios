@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Unimed Goiânia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <div class="texto">Unimed Goiânia</div>
+        <div class="sub">Consultórios · CEU</div>
+      </div>
+    </div>
+    <nav>
+      <div class="grupo-label">Visão geral</div>
+      <a class="nav-link active" href="dashboard.html"><span class="ic">◧</span> Dashboard</a>
+      <a class="nav-link" href="disponibilidade.html"><span class="ic">▤</span> Disponibilidade</a>
+      <div class="grupo-label">Cadastros</div>
+      <a class="nav-link" href="consultorios.html"><span class="ic">▢</span> Consultórios</a>
+      <a class="nav-link" href="profissionais.html"><span class="ic">☺</span> Profissionais</a>
+      <div class="grupo-label">Gestão</div>
+      <a class="nav-link" href="relatorios.html"><span class="ic">▲</span> Relatórios</a>
+      <a class="nav-link" href="importar.html"><span class="ic">⇩</span> Importar Excel</a>
+      <a class="nav-link" href="config.html"><span class="ic">⚙</span> Configurações</a>
+    </nav>
+  </aside>
+
+  <!-- ÁREA PRINCIPAL -->
+  <div class="principal">
+    <div class="topbar">
+      <span class="titulo">Coordenação de Consultórios</span>
+      <span class="data" id="data-hoje"></span>
+      <div class="busca-wrap">
+        <span class="lupa">⌕</span>
+        <input type="search" id="busca" placeholder="Buscar consultório ou médico">
+      </div>
+      <select id="seletor-mes">
+        <option>Junho</option><option>Julho</option><option>Agosto</option>
+      </select>
+      <div class="acoes">
+        <span class="data" id="hora-atualizacao"></span>
+        <button class="btn btn-primario" onclick="atualizarTudo()">Atualizar</button>
+      </div>
+    </div>
+
+    <main>
+      <section id="pagina-dashboard">
+        <div class="cabecalho">
+          <h1>Dashboard</h1>
+          <p>Panorama da capacidade instalada e disponibilidade de consultórios</p>
+        </div>
+
+        <div class="stats-row">
+          <div class="card stat-card">
+            <div class="topo"><span class="rotulo">Livres agora</span><span class="badge-ic ic-verde">🟢</span></div>
+            <div class="valor num" id="card-livres">–</div>
+            <div class="rodape" id="card-livres-rodape">consultórios com vaga hoje</div>
+          </div>
+          <div class="card stat-card">
+            <div class="topo"><span class="rotulo">Ocupados agora</span><span class="badge-ic ic-vermelho">🔴</span></div>
+            <div class="valor num" id="card-ocupados">–</div>
+            <div class="rodape" id="card-ocupados-rodape">sem vaga hoje</div>
+          </div>
+          <div class="card stat-card">
+            <div class="topo"><span class="rotulo">Ocupação da semana</span><span class="badge-ic ic-neutro">◧</span></div>
+            <div class="valor num" id="card-ocupacao">–</div>
+            <div class="rodape" id="card-ocupacao-rodape">média dos 16 encaixes semanais</div>
+          </div>
+          <div class="card stat-card">
+            <div class="topo"><span class="rotulo">Horários livres hoje</span><span class="badge-ic ic-neutro">◔</span></div>
+            <div class="valor num" id="card-horarios-hoje">–</div>
+            <div class="rodape" id="card-horarios-rodape">somando todos os turnos</div>
+          </div>
+        </div>
+
+        <div class="linha-meio">
+          <div class="card card-pad">
+            <h3>Ocupação por dia da semana</h3>
+            <div class="grafico-barras" id="grafico-barras"></div>
+          </div>
+
+          <div class="card card-pad">
+            <h3>Livre agora — <span id="nome-dia-hoje"></span></h3>
+            <div id="disponibilidade-hoje"></div>
+          </div>
+
+          <div class="card card-pad">
+            <h3>Alertas</h3>
+            <div id="alertas"></div>
+          </div>
+        </div>
+
+        <div class="card tabela-card">
+          <div class="cab-tabela"><h3>Consultórios</h3></div>
+          <table>
+            <thead><tr><th>Consultório</th><th>Ocupação</th><th>Encaixes livres</th><th>Status</th></tr></thead>
+            <tbody id="tabela-dashboard"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="js/dados.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

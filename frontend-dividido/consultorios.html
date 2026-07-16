@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consultórios — Unimed Goiânia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <div class="texto">Unimed Goiânia</div>
+        <div class="sub">Consultórios · CEU</div>
+      </div>
+    </div>
+    <nav>
+      <div class="grupo-label">Visão geral</div>
+      <a class="nav-link" href="dashboard.html"><span class="ic">◧</span> Dashboard</a>
+      <a class="nav-link" href="disponibilidade.html"><span class="ic">▤</span> Disponibilidade</a>
+      <div class="grupo-label">Cadastros</div>
+      <a class="nav-link active" href="consultorios.html"><span class="ic">▢</span> Consultórios</a>
+      <a class="nav-link" href="profissionais.html"><span class="ic">☺</span> Profissionais</a>
+      <div class="grupo-label">Gestão</div>
+      <a class="nav-link" href="relatorios.html"><span class="ic">▲</span> Relatórios</a>
+      <a class="nav-link" href="importar.html"><span class="ic">⇩</span> Importar Excel</a>
+      <a class="nav-link" href="config.html"><span class="ic">⚙</span> Configurações</a>
+    </nav>
+  </aside>
+
+  <div class="principal">
+    <div class="topbar">
+      <span class="titulo">Coordenação de Consultórios</span>
+      <span class="data" id="data-hoje"></span>
+      <div class="busca-wrap">
+        <span class="lupa">⌕</span>
+        <input type="search" id="busca" placeholder="Buscar consultório">
+      </div>
+      <select id="seletor-mes">
+        <option>Junho</option><option>Julho</option><option>Agosto</option>
+      </select>
+      <div class="acoes">
+        <span class="data" id="hora-atualizacao"></span>
+        <button class="btn btn-primario" onclick="atualizarTudo()">Atualizar</button>
+      </div>
+    </div>
+
+    <main>
+      <section id="pagina-consultorios">
+        <div class="cabecalho"><h1>Consultórios</h1><p>Cadastro das salas e sua capacidade por turno</p></div>
+        <div class="card card-pad">
+          <form class="inline" id="form-sala">
+            <input name="nome_base" placeholder="ex: Sala de Espera 2" required style="min-width:200px">
+            <input name="quantidade" type="number" min="1" value="1" placeholder="Qtd. de salas" style="max-width:120px" onwheel="this.blur()">
+            <input name="localizacao" placeholder="Localização (opcional)">
+            <input name="capacidade_por_turno" type="number" placeholder="Vagas/turno (padrão 16)">
+            <select name="status">
+              <option value="ativo">Ativo</option>
+              <option value="manutencao">Em manutenção</option>
+            </select>
+            <div class="picker-especialidades" id="picker-especialidades"></div>
+            <button class="btn btn-primario" type="submit">Adicionar</button>
+          </form>
+          <p style="font-size:12px;color:var(--ink-400);margin-top:8px">
+            Marque as especialidades que esse consultório atende. Se não marcar nenhuma,
+            o consultório aceita médico de qualquer especialidade. Cadastre as especialidades em
+            "Profissionais" antes, se a lista abaixo estiver vazia.
+          </p>
+        </div>
+        <div class="card tabela-card">
+          <table>
+            <thead><tr><th>Consultório</th><th>Capacidade</th><th>Especialidades</th><th>Status</th><th></th></tr></thead>
+            <tbody id="tabela-salas"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="js/dados.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/consultorios.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profissionais — Unimed Goiânia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <div class="texto">Unimed Goiânia</div>
+        <div class="sub">Consultórios · CEU</div>
+      </div>
+    </div>
+    <nav>
+      <div class="grupo-label">Visão geral</div>
+      <a class="nav-link" href="dashboard.html"><span class="ic">◧</span> Dashboard</a>
+      <a class="nav-link" href="disponibilidade.html"><span class="ic">▤</span> Disponibilidade</a>
+      <div class="grupo-label">Cadastros</div>
+      <a class="nav-link" href="consultorios.html"><span class="ic">▢</span> Consultórios</a>
+      <a class="nav-link active" href="profissionais.html"><span class="ic">☺</span> Profissionais</a>
+      <div class="grupo-label">Gestão</div>
+      <a class="nav-link" href="relatorios.html"><span class="ic">▲</span> Relatórios</a>
+      <a class="nav-link" href="importar.html"><span class="ic">⇩</span> Importar Excel</a>
+      <a class="nav-link" href="config.html"><span class="ic">⚙</span> Configurações</a>
+    </nav>
+  </aside>
+
+  <div class="principal">
+    <div class="topbar">
+      <span class="titulo">Coordenação de Consultórios</span>
+      <span class="data" id="data-hoje"></span>
+      <div class="busca-wrap">
+        <span class="lupa">⌕</span>
+        <input type="search" id="busca" placeholder="Buscar médico">
+      </div>
+      <select id="seletor-mes">
+        <option>Junho</option><option>Julho</option><option>Agosto</option>
+      </select>
+      <div class="acoes">
+        <span class="data" id="hora-atualizacao"></span>
+        <button class="btn btn-primario" onclick="atualizarTudo()">Atualizar</button>
+      </div>
+    </div>
+
+    <main>
+      <section id="pagina-profissionais">
+        <div class="cabecalho"><h1>Profissionais</h1><p>Especialidades e médicos</p></div>
+
+        <div class="card card-pad">
+          <h3>Especialidades</h3>
+          <form class="inline" id="form-especialidade">
+            <input name="nome" placeholder="Nome da especialidade" required>
+            <button class="btn btn-primario" type="submit">Adicionar</button>
+          </form>
+          <div class="lista-rolavel">
+            <table><tbody id="tabela-especialidades"></tbody></table>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <h3>Médicos</h3>
+          <form class="inline" id="form-medico">
+            <input name="nome" placeholder="Nome do médico" required>
+            <select name="especialidade_id"><option value="">Especialidade...</option></select>
+            <button class="btn btn-primario" type="submit">Adicionar</button>
+          </form>
+          <div class="lista-rolavel">
+            <table><tbody id="tabela-medicos"></tbody></table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="js/dados.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/profissionais.js"></script>
+</body>
+</html>
