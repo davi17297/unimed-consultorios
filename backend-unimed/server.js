@@ -98,12 +98,12 @@ app.put('/api/especialidades/:id', async (req, res) => {
 
 // ---------- MEDICOS ----------
 app.post('/api/medicos', async (req, res) => {
-  const { nome, especialidade_id } = req.body;
+  const { nome, especialidade_id, titulo, pacientes_por_turno } = req.body;
   if (!nome) return res.status(400).json({ erro: 'nome é obrigatório' });
   try {
     const { rows } = await pool.query(
-      'INSERT INTO medicos (nome, especialidade_id) VALUES ($1,$2) RETURNING *',
-      [nome, especialidade_id || null]
+      'INSERT INTO medicos (nome, especialidade_id, titulo, pacientes_por_turno) VALUES ($1,$2,$3,$4) RETURNING *',
+      [nome, especialidade_id || null, titulo || null, pacientes_por_turno || null]
     );
     res.status(201).json(rows[0]);
   } catch (erro) {
@@ -123,12 +123,12 @@ app.delete('/api/medicos/:id', async (req, res) => {
 });
 
 app.put('/api/medicos/:id', async (req, res) => {
-  const { nome, especialidade_id } = req.body;
+  const { nome, especialidade_id, titulo, pacientes_por_turno } = req.body;
   if (!nome) return res.status(400).json({ erro: 'nome é obrigatório' });
   try {
     const { rows } = await pool.query(
-      'UPDATE medicos SET nome=$1, especialidade_id=$2 WHERE id=$3 RETURNING *',
-      [nome, especialidade_id || null, req.params.id]
+      'UPDATE medicos SET nome=$1, especialidade_id=$2, titulo=$3, pacientes_por_turno=$4 WHERE id=$5 RETURNING *',
+      [nome, especialidade_id || null, titulo || null, pacientes_por_turno || null, req.params.id]
     );
     res.json(rows[0]);
   } catch (erro) {

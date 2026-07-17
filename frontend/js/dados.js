@@ -103,8 +103,10 @@ const api = {
   criarEspecialidade: (nome) => chamarApi('/api/especialidades', 'POST', { nome }),
   editarEspecialidade: (id, nome) => chamarApi(`/api/especialidades/${id}`, 'PUT', { nome }),
   excluirEspecialidade: (id) => chamarApi(`/api/especialidades/${id}`, 'DELETE'),
-  criarMedico: (nome, especialidade_id) => chamarApi('/api/medicos', 'POST', { nome, especialidade_id }),
-  editarMedico: (id, nome, especialidade_id) => chamarApi(`/api/medicos/${id}`, 'PUT', { nome, especialidade_id }),
+  criarMedico: (nome, especialidade_id, titulo, pacientes_por_turno) =>
+    chamarApi('/api/medicos', 'POST', { nome, especialidade_id, titulo, pacientes_por_turno }),
+  editarMedico: (id, nome, especialidade_id, titulo, pacientes_por_turno) =>
+    chamarApi(`/api/medicos/${id}`, 'PUT', { nome, especialidade_id, titulo, pacientes_por_turno }),
   excluirMedico: (id) => chamarApi(`/api/medicos/${id}`, 'DELETE'),
   criarSala: (dadosSala) => chamarApi('/api/salas', 'POST', dadosSala),
   excluirSala: (id) => chamarApi(`/api/salas/${id}`, 'DELETE'),
@@ -122,28 +124,49 @@ function corPorOcupacao(percentual) {
 }
 
 // ---------- CÁLCULO POR SALA ----------
+// Monta "Dr. Fulano" / "Dra. Joana" a partir do nome + título cadastrados,
+// sem duplicar o título se a pessoa já tiver digitado ele dentro do nome.
+function formatarNomeMedico(medico) {
+  if (!medico) return '';
+  const titulo = (medico.titulo || '').trim();
+  const nome = (medico.nome || '').trim();
+  if (!titulo) return nome;
+  if (nome.toLowerCase().startsWith(titulo.toLowerCase())) return nome;
+  return `${titulo} ${nome}`;
+}
+
+// Instalada/Atual agora somam a capacidade REAL de cada horário:
+// se tem médico marcado e ele tem "pacientes_por_turno" cadastrado, usa esse
+// número; senão (ou se o horário está livre) usa o padrão do consultório.
 function calcularSala(dados, sala) {
   let ocupados = 0;
+  let instalada = 0;
+  let atual = 0;
   const encaixesLivresHoje = [];
   const hoje = diaDeHoje();
+  const vagasPadrao = Number(sala.capacidade_por_turno) || 16;
 
   DIAS.forEach(dia => {
     turnosDoDia(dia).forEach(turno => {
       const celula = dados.escala[chaveCelula(sala.id, dia, turno)];
-      const temMedico = !!(celula && celula.medico_id);
-      if (temMedico) ocupados += 1;
-      if (dia === hoje && !temMedico) encaixesLivresHoje.push(turno);
+      const medico = celula && celula.medico_id ? dados.medicos.find(m => m.id === celula.medico_id) : null;
+      const vagasDesseHorario = (medico && medico.pacientes_por_turno) ? Number(medico.pacientes_por_turno) : vagasPadrao;
+
+      instalada += vagasDesseHorario;
+      if (medico) {
+        ocupados += 1;
+        atual += vagasDesseHorario;
+      } else if (dia === hoje) {
+        encaixesLivresHoje.push(turno);
+      }
     });
   });
 
   const livres = TOTAL_ENCAIXES - ocupados;
-  const vagas = Number(sala.capacidade_por_turno) || 16;
-  const instalada = vagas * TOTAL_ENCAIXES;
-  const atual = vagas * ocupados;
-  const livre = vagas * livres;
-  const percentual = TOTAL_ENCAIXES > 0 ? ocupados / TOTAL_ENCAIXES : 0;
+  const livre = instalada - atual;
+  const percentual = instalada > 0 ? atual / instalada : 0;
 
-  return { sala, ocupados, livres, vagas, instalada, atual, livre, percentual, encaixesLivresHoje };
+  return { sala, ocupados, livres, vagas: vagasPadrao, instalada, atual, livre, percentual, encaixesLivresHoje };
 }
 
 function calcularDashboard() {

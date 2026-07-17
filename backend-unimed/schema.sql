@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS medicos (
   especialidade_id INTEGER REFERENCES especialidades(id) ON DELETE SET NULL
 );
 
+-- Adiciona as colunas novas mesmo se a tabela já existir (é seguro rodar de novo)
+ALTER TABLE medicos ADD COLUMN IF NOT EXISTS titulo TEXT;
+ALTER TABLE medicos ADD COLUMN IF NOT EXISTS pacientes_por_turno INTEGER;
+
 -- Cada consultório físico. "sala_espera" é o agrupamento visual
 -- (ex: "Sala de Espera 2") que já existe no frontend.
 CREATE TABLE IF NOT EXISTS salas (
