@@ -99,4 +99,41 @@ document.getElementById('form-sala').addEventListener('submit', async (e) => {
   try {
     for (let i = 1; i <= quantidade; i++) {
       await api.criarSala({
-        nome:
+        nome: quantidade > 1 ? `${f.nome_base.value} - Consultório ${i}` : f.nome_base.value,
+        sala_espera: f.nome_base.value,
+        localizacao: f.localizacao.value || null,
+        capacidade_por_turno: f.capacidade_por_turno.value ? Number(f.capacidade_por_turno.value) : 16,
+        status: f.status.value || 'ativo',
+        especialidades_permitidas: especialidadesPermitidas
+      });
+    }
+    await carregarDados();
+    f.reset();
+    carregarTabelaSalas();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui salvar o(s) consultório(s). Confere sua internet e tenta de novo.');
+  } finally {
+    botao.disabled = false;
+    botao.textContent = 'Adicionar';
+  }
+});
+
+document.getElementById('busca').addEventListener('input', carregarTabelaSalas);
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await carregarDados();
+    carregarOpcoesEspecialidades();
+    carregarTabelaSalas();
+  } catch (erro) {
+    console.error('Erro ao carregar Consultórios:', erro);
+    document.getElementById('tabela-salas').innerHTML =
+      `<tr><td class="vazio">Não consegui falar com o servidor. Confere sua internet ou tenta de novo em alguns segundos.</td></tr>`;
+  }
+});
+
+window.atualizarPagina = () => {
+  carregarOpcoesEspecialidades();
+  carregarTabelaSalas();
+};
