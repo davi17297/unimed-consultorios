@@ -40,15 +40,16 @@ function carregarPaginaProfissionais() {
     const esp = dados.especialidades.find(e => e.id === m.especialidade_id);
     return `
       <tr>
-        <td>${m.nome}</td>
+        <td>${formatarNomeMedico(m)}</td>
         <td>${esp ? esp.nome : '<span class="vazio" style="padding:0">sem especialidade</span>'}</td>
+        <td class="num">${m.pacientes_por_turno ? m.pacientes_por_turno + ' pac/turno' : '<span class="vazio" style="padding:0">padrão do consultório</span>'}</td>
         <td style="text-align:right">
           <button class="acao-icone" onclick="editarMedico(${m.id})">Editar</button>
           <button class="acao-icone" onclick="excluirMedico(${m.id})">Excluir</button>
         </td>
       </tr>
     `;
-  }).join('') || `<tr><td class="vazio">Nenhum médico encontrado.</td></tr>`;
+  }).join('') || `<tr><td class="vazio" colspan="4">Nenhum médico encontrado.</td></tr>`;
 }
 
 document.getElementById('busca-especialidade').addEventListener('input', carregarPaginaProfissionais);
@@ -96,6 +97,8 @@ function editarMedico(id) {
   const f = document.getElementById('form-medico');
   f.nome.value = m.nome;
   f.especialidade_id.value = m.especialidade_id || '';
+  f.titulo.value = m.titulo || '';
+  f.pacientes_por_turno.value = m.pacientes_por_turno || '';
   f.nome.focus();
   document.getElementById('botao-medico').textContent = 'Salvar edição';
   document.getElementById('cancelar-edicao-medico').classList.remove('oculto');
@@ -144,11 +147,13 @@ document.getElementById('form-medico').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
   const especialidadeId = f.especialidade_id.value ? Number(f.especialidade_id.value) : null;
+  const titulo = f.titulo.value || null;
+  const pacientesPorTurno = f.pacientes_por_turno.value ? Number(f.pacientes_por_turno.value) : null;
   try {
     if (medicoEditandoId) {
-      await api.editarMedico(medicoEditandoId, f.nome.value, especialidadeId);
+      await api.editarMedico(medicoEditandoId, f.nome.value, especialidadeId, titulo, pacientesPorTurno);
     } else {
-      await api.criarMedico(f.nome.value, especialidadeId);
+      await api.criarMedico(f.nome.value, especialidadeId, titulo, pacientesPorTurno);
     }
     await carregarDados();
     cancelarEdicaoMedico();

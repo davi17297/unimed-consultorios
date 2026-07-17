@@ -67,14 +67,26 @@
         <div class="card card-pad">
           <h3>Médicos</h3>
           <form class="inline" id="form-medico">
+            <select name="titulo" style="max-width:110px">
+              <option value="">Título...</option>
+              <option value="Dr.">Dr.</option>
+              <option value="Dra.">Dra.</option>
+            </select>
             <input name="nome" placeholder="Nome do médico" required>
             <select name="especialidade_id"><option value="">Especialidade...</option></select>
+            <input name="pacientes_por_turno" type="number" min="1" placeholder="Pacientes/turno" style="max-width:140px">
             <button class="btn btn-primario" type="submit" id="botao-medico">Adicionar</button>
             <button type="button" class="btn oculto" id="cancelar-edicao-medico" onclick="cancelarEdicaoMedico()">Cancelar</button>
           </form>
+          <p style="font-size:12px;color:var(--ink-400);margin:-4px 0 10px">
+            Se não preencher "Pacientes/turno", o sistema usa o padrão do consultório (geralmente 16) quando esse médico estiver escalado.
+          </p>
           <input type="search" id="busca-medico" placeholder="🔎 Buscar médico ou especialidade..." style="width:100%;margin-bottom:10px">
           <div class="lista-rolavel">
-            <table><tbody id="tabela-medicos"></tbody></table>
+            <table>
+              <thead><tr><th>Médico</th><th>Especialidade</th><th>Capacidade</th><th></th></tr></thead>
+              <tbody id="tabela-medicos"></tbody>
+            </table>
           </div>
         </div>
       </section>
