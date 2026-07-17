@@ -101,8 +101,10 @@ async function chamarApi(caminho, metodo, corpo) {
 
 const api = {
   criarEspecialidade: (nome) => chamarApi('/api/especialidades', 'POST', { nome }),
+  editarEspecialidade: (id, nome) => chamarApi(`/api/especialidades/${id}`, 'PUT', { nome }),
   excluirEspecialidade: (id) => chamarApi(`/api/especialidades/${id}`, 'DELETE'),
   criarMedico: (nome, especialidade_id) => chamarApi('/api/medicos', 'POST', { nome, especialidade_id }),
+  editarMedico: (id, nome, especialidade_id) => chamarApi(`/api/medicos/${id}`, 'PUT', { nome, especialidade_id }),
   excluirMedico: (id) => chamarApi(`/api/medicos/${id}`, 'DELETE'),
   criarSala: (dadosSala) => chamarApi('/api/salas', 'POST', dadosSala),
   excluirSala: (id) => chamarApi(`/api/salas/${id}`, 'DELETE'),

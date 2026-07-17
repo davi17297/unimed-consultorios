@@ -55,8 +55,10 @@
           <h3>Especialidades</h3>
           <form class="inline" id="form-especialidade">
             <input name="nome" placeholder="Nome da especialidade" required>
-            <button class="btn btn-primario" type="submit">Adicionar</button>
+            <button class="btn btn-primario" type="submit" id="botao-especialidade">Adicionar</button>
+            <button type="button" class="btn oculto" id="cancelar-edicao-especialidade" onclick="cancelarEdicaoEspecialidade()">Cancelar</button>
           </form>
+          <input type="search" id="busca-especialidade" placeholder="🔎 Buscar especialidade..." style="width:100%;margin-bottom:10px">
           <div class="lista-rolavel">
             <table><tbody id="tabela-especialidades"></tbody></table>
           </div>
@@ -67,8 +69,10 @@
           <form class="inline" id="form-medico">
             <input name="nome" placeholder="Nome do médico" required>
             <select name="especialidade_id"><option value="">Especialidade...</option></select>
-            <button class="btn btn-primario" type="submit">Adicionar</button>
+            <button class="btn btn-primario" type="submit" id="botao-medico">Adicionar</button>
+            <button type="button" class="btn oculto" id="cancelar-edicao-medico" onclick="cancelarEdicaoMedico()">Cancelar</button>
           </form>
+          <input type="search" id="busca-medico" placeholder="🔎 Buscar médico ou especialidade..." style="width:100%;margin-bottom:10px">
           <div class="lista-rolavel">
             <table><tbody id="tabela-medicos"></tbody></table>
           </div>

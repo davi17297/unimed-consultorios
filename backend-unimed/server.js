@@ -81,6 +81,21 @@ app.delete('/api/especialidades/:id', async (req, res) => {
   }
 });
 
+app.put('/api/especialidades/:id', async (req, res) => {
+  const { nome } = req.body;
+  if (!nome) return res.status(400).json({ erro: 'nome é obrigatório' });
+  try {
+    const { rows } = await pool.query(
+      'UPDATE especialidades SET nome=$1 WHERE id=$2 RETURNING *',
+      [nome, req.params.id]
+    );
+    res.json(rows[0]);
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao editar especialidade' });
+  }
+});
+
 // ---------- MEDICOS ----------
 app.post('/api/medicos', async (req, res) => {
   const { nome, especialidade_id } = req.body;
@@ -104,6 +119,21 @@ app.delete('/api/medicos/:id', async (req, res) => {
   } catch (erro) {
     console.error(erro);
     res.status(500).json({ erro: 'Erro ao excluir médico' });
+  }
+});
+
+app.put('/api/medicos/:id', async (req, res) => {
+  const { nome, especialidade_id } = req.body;
+  if (!nome) return res.status(400).json({ erro: 'nome é obrigatório' });
+  try {
+    const { rows } = await pool.query(
+      'UPDATE medicos SET nome=$1, especialidade_id=$2 WHERE id=$3 RETURNING *',
+      [nome, especialidade_id || null, req.params.id]
+    );
+    res.json(rows[0]);
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao editar médico' });
   }
 });
 
