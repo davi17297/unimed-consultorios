@@ -1,0 +1,284 @@
+// ============================================================
+// importar.js — lê a planilha modelo preenchida, mostra uma
+// prévia, e cria tudo (especialidades, médicos, consultórios,
+// escala) no backend. Depende de dados.js e da biblioteca SheetJS
+// (carregada no importar.html).
+// ============================================================
+
+let linhasImportacao = []; // linhas normalizadas, vindas do Excel
+let resumoImportacao = null; // { novasEspecialidades, novosMedicos, novasSalas, linhasValidas }
+
+function removerAcentos(txt) {
+  return (txt || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+function normalizarDia(valor) {
+  const bruto = (valor || '').toString().trim();
+  const achado = DIAS.find(d => d === bruto);
+  if (achado) return achado;
+  const semAcento = removerAcentos(bruto);
+  const mapa = {
+    'segunda': 'Segunda-Feira', 'segunda-feira': 'Segunda-Feira',
+    'terca': 'Terça-Feira', 'terca-feira': 'Terça-Feira',
+    'quarta': 'Quarta-Feira', 'quarta-feira': 'Quarta-Feira',
+    'quinta': 'Quinta-Feira', 'quinta-feira': 'Quinta-Feira',
+    'sexta': 'Sexta-Feira', 'sexta-feira': 'Sexta-Feira',
+    'sabado': 'Sábado'
+  };
+  return mapa[semAcento] || null;
+}
+
+function normalizarTurno(valor) {
+  const bruto = (valor || '').toString().trim();
+  const turnosValidos = ['08h às 12h', '12h às 16h', '16h às 20h'];
+  if (turnosValidos.includes(bruto)) return bruto;
+  if (bruto.includes('08') || bruto.includes('8h')) return '08h às 12h';
+  if (bruto.includes('12') && (bruto.includes('16') || bruto.includes('às 1'))) return '12h às 16h';
+  if (bruto.includes('16') && bruto.includes('20')) return '16h às 20h';
+  return null;
+}
+
+function normalizarStatus(valor) {
+  const semAcento = removerAcentos(valor);
+  return semAcento.includes('manuten') ? 'manutencao' : 'ativo';
+}
+
+function listaDeEspecialidades(valor) {
+  return (valor || '').toString().split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function nomeCompletoSala(salaEspera, consultorio) {
+  const se = (salaEspera || '').trim();
+  const co = (consultorio || '').trim();
+  if (!se) return co;
+  if (!co) return se;
+  return co.toLowerCase().includes(se.toLowerCase()) ? co : `${se} - ${co}`;
+}
+
+// ---------- Passo 2: ler e processar o arquivo ----------
+document.getElementById('input-arquivo').addEventListener('change', async (e) => {
+  const arquivo = e.target.files[0];
+  const statusEl = document.getElementById('status-arquivo');
+  if (!arquivo) return;
+
+  statusEl.textContent = 'Lendo o arquivo...';
+  document.getElementById('area-previa').classList.add('oculto');
+  document.getElementById('area-resultado').classList.add('oculto');
+
+  try {
+    const dadosBinarios = await arquivo.arrayBuffer();
+    const workbook = XLSX.read(dadosBinarios, { type: 'array' });
+
+    const nomeAba = workbook.SheetNames.find(n => n.toLowerCase().includes('escala')) || workbook.SheetNames[0];
+    const planilha = workbook.Sheets[nomeAba];
+    const linhasBrutas = XLSX.utils.sheet_to_json(planilha, { defval: '' });
+
+    processarLinhas(linhasBrutas);
+    statusEl.textContent = `Arquivo lido: ${arquivo.name} (${linhasBrutas.length} linha(s) encontradas)`;
+  } catch (erro) {
+    console.error(erro);
+    statusEl.textContent = 'Não consegui ler esse arquivo. Confere se é o modelo .xlsx baixado aqui mesmo.';
+  }
+});
+
+function processarLinhas(linhasBrutas) {
+  const dados = banco.ler();
+  const avisos = [];
+  linhasImportacao = [];
+
+  linhasBrutas.forEach((linha, indice) => {
+    const salaEspera = (linha['Sala de Espera'] || '').toString().trim();
+    const consultorio = (linha['Consultório'] || '').toString().trim();
+    if (!salaEspera && !consultorio) return; // linha totalmente vazia, ignora
+
+    if (!salaEspera || !consultorio) {
+      avisos.push(`Linha ${indice + 2}: faltando "Sala de Espera" ou "Consultório" — ignorada.`);
+      return;
+    }
+
+    const diaBruto = linha['Dia da Semana'];
+    const turnoBruto = linha['Turno'];
+    const medico = (linha['Médico'] || '').toString().trim();
+
+    let dia = null, turno = null;
+    if (diaBruto || turnoBruto || medico) {
+      dia = normalizarDia(diaBruto);
+      turno = normalizarTurno(turnoBruto);
+      if ((diaBruto || turnoBruto || medico) && (!dia || !turno || !medico)) {
+        avisos.push(`Linha ${indice + 2} (${consultorio}): dia/turno/médico incompleto ou não reconhecido — esse horário específico não será preenchido, mas o consultório será criado.`);
+        dia = null; turno = null;
+      }
+    }
+
+    linhasImportacao.push({
+      linhaOriginal: indice + 2,
+      nomeCompleto: nomeCompletoSala(salaEspera, consultorio),
+      salaEspera,
+      vagasPorTurno: Number(linha['Vagas por Turno']) || 16,
+      especialidadesConsultorio: listaDeEspecialidades(linha['Especialidades do Consultório']),
+      status: normalizarStatus(linha['Status']),
+      dia,
+      turno,
+      medico: medico || null,
+      especialidadeMedico: (linha['Especialidade do Médico'] || '').toString().trim() || null,
+      observacao: (linha['Observação'] || '').toString().trim()
+    });
+  });
+
+  montarResumo(dados, avisos);
+}
+
+function montarResumo(dados, avisos) {
+  // Consultórios únicos (com a metadata da primeira ocorrência de cada um)
+  const salasMap = new Map();
+  linhasImportacao.forEach(l => {
+    if (!salasMap.has(l.nomeCompleto)) {
+      salasMap.set(l.nomeCompleto, {
+        nome: l.nomeCompleto,
+        salaEspera: l.salaEspera,
+        vagasPorTurno: l.vagasPorTurno,
+        especialidades: l.especialidadesConsultorio,
+        status: l.status
+      });
+    }
+  });
+
+  const nomesExistentes = dados.salas.map(s => removerAcentos(s.nome));
+  const novasSalas = Array.from(salasMap.values()).filter(s => !nomesExistentes.includes(removerAcentos(s.nome)));
+
+  const especialidadesExistentes = dados.especialidades.map(e => removerAcentos(e.nome));
+  const todasEspecialidadesCitadas = new Set();
+  linhasImportacao.forEach(l => {
+    l.especialidadesConsultorio.forEach(e => todasEspecialidadesCitadas.add(e));
+    if (l.especialidadeMedico) todasEspecialidadesCitadas.add(l.especialidadeMedico);
+  });
+  const novasEspecialidades = Array.from(todasEspecialidadesCitadas).filter(e => !especialidadesExistentes.includes(removerAcentos(e)));
+
+  const medicosExistentes = dados.medicos.map(m => removerAcentos(m.nome));
+  const medicosMap = new Map();
+  linhasImportacao.forEach(l => {
+    if (l.medico && !medicosMap.has(removerAcentos(l.medico))) {
+      medicosMap.set(removerAcentos(l.medico), { nome: l.medico, especialidade: l.especialidadeMedico });
+    }
+  });
+  const novosMedicos = Array.from(medicosMap.values()).filter(m => !medicosExistentes.includes(removerAcentos(m.nome)));
+
+  const linhasComHorario = linhasImportacao.filter(l => l.dia && l.turno && l.medico);
+
+  resumoImportacao = { novasSalas, novasEspecialidades, novosMedicos, linhasComHorario };
+
+  document.getElementById('resumo-previa').innerHTML = `
+    <strong>${novasSalas.length}</strong> consultório(s) novo(s) ·
+    <strong>${novasEspecialidades.length}</strong> especialidade(s) nova(s) ·
+    <strong>${novosMedicos.length}</strong> médico(s) novo(s) ·
+    <strong>${linhasComHorario.length}</strong> horário(s) serão preenchidos
+  `;
+
+  document.getElementById('avisos-previa').innerHTML = avisos.length > 0
+    ? `<div class="card-pad" style="background:var(--amber-100);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--amber-600)">
+        ${avisos.map(a => `<div>⚠ ${a}</div>`).join('')}
+      </div>`
+    : '';
+
+  document.getElementById('tabela-previa').innerHTML = linhasComHorario.length > 0
+    ? linhasComHorario.map(l => `
+        <tr><td>${l.nomeCompleto}</td><td>${l.dia}</td><td>${l.turno}</td><td>${l.medico}</td></tr>
+      `).join('')
+    : `<tr><td class="vazio">Nenhum horário com médico preenchido nas linhas enviadas.</td></tr>`;
+
+  document.getElementById('area-previa').classList.remove('oculto');
+}
+
+// ---------- Passo 3: confirmar e gravar tudo no backend ----------
+document.getElementById('botao-confirmar').addEventListener('click', async () => {
+  const botao = document.getElementById('botao-confirmar');
+  const areaResultado = document.getElementById('area-resultado');
+  const textoResultado = document.getElementById('texto-resultado');
+  botao.disabled = true;
+
+  const relatorio = { especialidades: 0, medicos: 0, salas: 0, horarios: 0, erros: [] };
+
+  try {
+    // 1) especialidades novas
+    for (const nome of resumoImportacao.novasEspecialidades) {
+      botao.textContent = `Criando especialidade "${nome}"...`;
+      await api.criarEspecialidade(nome);
+      relatorio.especialidades++;
+    }
+    await carregarDados();
+
+    // 2) médicos novos (já resolvendo a especialidade pelo nome, se informada)
+    for (const m of resumoImportacao.novosMedicos) {
+      botao.textContent = `Criando médico "${m.nome}"...`;
+      const dadosAtuais = banco.ler();
+      const esp = m.especialidade
+        ? dadosAtuais.especialidades.find(e => removerAcentos(e.nome) === removerAcentos(m.especialidade))
+        : null;
+      await api.criarMedico(m.nome, esp ? esp.id : null);
+      relatorio.medicos++;
+    }
+    await carregarDados();
+
+    // 3) consultórios novos
+    for (const s of resumoImportacao.novasSalas) {
+      botao.textContent = `Criando consultório "${s.nome}"...`;
+      const dadosAtuais = banco.ler();
+      const idsEspecialidades = s.especialidades
+        .map(nome => dadosAtuais.especialidades.find(e => removerAcentos(e.nome) === removerAcentos(nome)))
+        .filter(Boolean)
+        .map(e => e.id);
+      await api.criarSala({
+        nome: s.nome,
+        sala_espera: s.salaEspera,
+        localizacao: null,
+        capacidade_por_turno: s.vagasPorTurno,
+        status: s.status,
+        especialidades_permitidas: idsEspecialidades
+      });
+      relatorio.salas++;
+    }
+    await carregarDados();
+
+    // 4) horários (escala)
+    for (const l of resumoImportacao.linhasComHorario) {
+      botao.textContent = `Preenchendo ${l.nomeCompleto} — ${l.dia} ${l.turno}...`;
+      const dadosAtuais = banco.ler();
+      const sala = dadosAtuais.salas.find(s => removerAcentos(s.nome) === removerAcentos(l.nomeCompleto));
+      const medico = dadosAtuais.medicos.find(m => removerAcentos(m.nome) === removerAcentos(l.medico));
+      if (!sala || !medico) {
+        relatorio.erros.push(`Não achei o consultório ou médico pra: ${l.nomeCompleto} — ${l.dia} ${l.turno} — ${l.medico}`);
+        continue;
+      }
+      await api.atualizarCelula(sala.id, l.dia, l.turno, medico.id, l.observacao || '');
+      relatorio.horarios++;
+    }
+    await carregarDados();
+
+    textoResultado.innerHTML = `
+      <p>✅ Importação concluída!</p>
+      <p>${relatorio.especialidades} especialidade(s) criada(s) · ${relatorio.medicos} médico(s) criado(s) ·
+      ${relatorio.salas} consultório(s) criado(s) · ${relatorio.horarios} horário(s) preenchido(s).</p>
+      ${relatorio.erros.length > 0 ? `<p style="color:var(--red-600)">${relatorio.erros.join('<br>')}</p>` : ''}
+      <p><a href="dashboard.html">Ver no Dashboard →</a></p>
+    `;
+    document.getElementById('area-previa').classList.add('oculto');
+    areaResultado.classList.remove('oculto');
+  } catch (erro) {
+    console.error(erro);
+    textoResultado.innerHTML = `<p style="color:var(--red-600)">Deu erro no meio da importação. Confere sua internet e tenta de novo — o que já foi criado até aqui continua salvo.</p>`;
+    areaResultado.classList.remove('oculto');
+  } finally {
+    botao.disabled = false;
+    botao.textContent = 'Confirmar Importação';
+  }
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await carregarDados();
+  } catch (erro) {
+    console.error('Erro ao carregar dados para importação:', erro);
+  }
+});
+
+window.atualizarPagina = () => {};

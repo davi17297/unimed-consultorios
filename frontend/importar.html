@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/estilo.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -49,11 +50,43 @@
 
     <main>
       <section id="pagina-importar">
-        <div class="cabecalho"><h1>Importar Excel</h1><p>Trazer a escala atual para o sistema</p></div>
-        <div class="card card-pad vazio">
-          Importação automática da planilha existente (ESCALA_DE_CONSULTÓRIOS_CEU) — próximo passo
-          natural depois que o backend e o banco de dados estiverem de pé, pra já subir os dados reais
-          em vez de digitar tudo de novo.
+        <div class="cabecalho"><h1>Importar Excel</h1><p>Trazer a escala de consultórios de uma planilha pro sistema</p></div>
+
+        <div class="card card-pad">
+          <h3>Passo 1 — Baixe o modelo</h3>
+          <p style="font-size:13px;color:var(--ink-600);margin:0 0 12px">
+            Preencha esse arquivo com os consultórios e horários (tem instruções e um exemplo dentro dele),
+            depois volte aqui e envie ele preenchido.
+          </p>
+          <a class="btn btn-primario" href="modelo-importacao.xlsx" download>⇩ Baixar modelo (.xlsx)</a>
+        </div>
+
+        <div class="card card-pad">
+          <h3>Passo 2 — Envie o arquivo preenchido</h3>
+          <input type="file" id="input-arquivo" accept=".xlsx,.xls">
+          <p id="status-arquivo" style="font-size:13px;color:var(--ink-400);margin-top:10px"></p>
+        </div>
+
+        <div id="area-previa" class="oculto">
+          <div class="card card-pad">
+            <h3>Passo 3 — Confira antes de importar</h3>
+            <div id="resumo-previa" style="font-size:13px;color:var(--ink-900);margin-bottom:14px"></div>
+            <div id="avisos-previa"></div>
+            <div class="lista-rolavel" style="max-height:280px">
+              <table>
+                <thead><tr><th>Consultório</th><th>Dia</th><th>Turno</th><th>Médico</th></tr></thead>
+                <tbody id="tabela-previa"></tbody>
+              </table>
+            </div>
+            <button class="btn btn-primario" id="botao-confirmar" style="margin-top:14px">Confirmar Importação</button>
+          </div>
+        </div>
+
+        <div id="area-resultado" class="oculto">
+          <div class="card card-pad">
+            <h3>Resultado</h3>
+            <div id="texto-resultado" style="font-size:13px"></div>
+          </div>
         </div>
       </section>
     </main>
@@ -62,5 +95,6 @@
 
 <script src="js/dados.js"></script>
 <script src="js/layout.js"></script>
+<script src="js/importar.js"></script>
 </body>
 </html>
