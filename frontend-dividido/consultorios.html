@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+html<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -58,8 +58,8 @@
           <form class="inline" id="form-sala">
             <input name="nome_base" placeholder="ex: Sala de Espera 2" required style="min-width:200px">
             <input name="quantidade" type="number" min="1" value="1" placeholder="Qtd. de salas" style="max-width:120px" onwheel="this.blur()">
-            <input name="localizacao" placeholder="Localização (opcional)">
-            <input name="capacidade_por_turno" type="number" placeholder="Vagas/turno (padrão 16)">
+            <input type="hidden" name="localizacao" value="">
+            <input type="hidden" name="capacidade_por_turno" value="16">
             <select name="status">
               <option value="ativo">Ativo</option>
               <option value="manutencao">Em manutenção</option>
