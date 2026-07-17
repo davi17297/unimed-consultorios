@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "db:init": "node init-db.js"
+    "db:init": "node init-db.js",
+    "db:limpar": "node limpar-tudo.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

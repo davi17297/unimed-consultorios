@@ -169,6 +169,144 @@ function parseFormatoReal(workbook) {
   return { linhas, avisos };
 }
 
+// ---------- Reconhecimento do formato NOVO (2026): consultórios lado a
+// lado na mesma linha da planilha. A âncora é a célula com o texto exato
+// "DIA" (sem a seta "↓" que o formato antigo usava).
+function pareceFormatoNovo2026(workbook) {
+  return workbook.SheetNames.some(nomeAba => {
+    const ws = workbook.Sheets[nomeAba];
+    if (!ws['!ref']) return false;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const cel = ws[XLSX.utils.encode_cell({ r, c })];
+        if (cel && String(cel.v).trim().toUpperCase() === 'DIA') return true;
+      }
+    }
+    return false;
+  });
+}
+
+function localizacaoDaAba(nomeAba) {
+  return nomeAba.replace(/\s*\(\d+\)\s*$/, '').trim();
+}
+
+function lerRotulosTurno(ws, row, colInicial, maxColunas) {
+  const rotulos = [];
+  for (let c = colInicial; c < colInicial + maxColunas; c++) {
+    const cel = ws[XLSX.utils.encode_cell({ r: row, c })];
+    const val = cel ? String(cel.v).trim() : '';
+    if (!val) break;
+    rotulos.push(val);
+  }
+  return rotulos;
+}
+
+function parseFormatoNovo2026(workbook) {
+  const linhas = [];
+  const avisos = [];
+  const diasSemana = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira'];
+
+  workbook.SheetNames.forEach(nomeAba => {
+    const localizacao = localizacaoDaAba(nomeAba);
+    const ws = workbook.Sheets[nomeAba];
+    if (!ws['!ref']) return;
+    const range = XLSX.utils.decode_range(ws['!ref']);
+
+    // Varre TODAS as células (não só a coluna A) procurando "DIA", porque
+    // cada consultório lado a lado tem sua própria âncora em colunas diferentes.
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const celDia = ws[XLSX.utils.encode_cell({ r, c })];
+        const valorDia = celDia ? String(celDia.v).trim().toUpperCase() : '';
+        if (valorDia !== 'DIA') continue;
+
+        const diaRow = r;
+        const celHeader = ws[XLSX.utils.encode_cell({ r: diaRow - 1, c })];
+        let headerTexto = celHeader ? String(celHeader.v) : '';
+        headerTexto = headerTexto.replace(/^"+|"+$/g, '').trim();
+        if (!headerTexto) continue;
+
+        const partes = headerTexto.split('\n');
+        const especialidades = (partes[0] || '').split('|').map(s => s.trim()).filter(Boolean);
+        const descricaoSala = (partes[1] || partes[0] || '').trim();
+
+        let salaEspera = descricaoSala, consultorio = '';
+        const idxTraco = descricaoSala.indexOf(' - ');
+        if (idxTraco > -1) {
+          salaEspera = descricaoSala.slice(0, idxTraco).trim();
+          consultorio = descricaoSala.slice(idxTraco + 3).trim();
+        }
+        if (!salaEspera) continue;
+        const nomeCompleto = nomeCompletoSala(salaEspera, consultorio);
+
+        // Cada bloco pode ter horários diferentes dos outros — lê os
+        // rótulos de turno específicos desse consultório
+        const rotulosBrutos = lerRotulosTurno(ws, diaRow, c + 1, 4);
+        const turnosNormalizados = rotulosBrutos.map(normalizarTurno);
+        const suportado = rotulosBrutos.length === 3 && turnosNormalizados.every(Boolean);
+
+        if (!suportado) {
+          avisos.push(
+            `Aba "${nomeAba}", "${nomeCompleto}": usa horários fora do padrão (${rotulosBrutos.join(', ') || 'nenhum encontrado'}) — ` +
+            `consultório será cadastrado, mas a escala precisa ser preenchida manualmente na tela Disponibilidade.`
+          );
+          if (!linhas.some(l => l.nomeCompleto === nomeCompleto)) {
+            linhas.push({
+              nomeCompleto, salaEspera, localizacao, vagasPorTurno: 16,
+              especialidadesConsultorio: especialidades, status: 'ativo',
+              dia: null, turno: null, medico: null, especialidadeMedico: null, observacao: ''
+            });
+          }
+          continue;
+        }
+
+        diasSemana.forEach((diaNome, i) => {
+          const linhaDia = diaRow + 1 + i;
+          turnosNormalizados.forEach((turnoNome, indiceTurno) => {
+            const colCel = c + 1 + indiceTurno;
+            const cel = ws[XLSX.utils.encode_cell({ r: linhaDia, c: colCel })];
+            if (!cel || !cel.v || !String(cel.v).trim()) return;
+            const { nome, obs } = separarNomeEObservacao(cel.v);
+            if (!nome) return;
+            linhas.push({
+              nomeCompleto, salaEspera, localizacao, vagasPorTurno: 16,
+              especialidadesConsultorio: especialidades, status: 'ativo',
+              dia: diaNome, turno: turnoNome, medico: nome,
+              especialidadeMedico: null, observacao: obs
+            });
+          });
+        });
+
+        // Sábado: rótulo em diaRow+6, médico em diaRow+7 (só o primeiro turno)
+        const rotuloSabado = ws[XLSX.utils.encode_cell({ r: diaRow + 6, c })];
+        if (rotuloSabado && /s[aá]bado/i.test(String(rotuloSabado.v || ''))) {
+          const celMedicoSabado = ws[XLSX.utils.encode_cell({ r: diaRow + 7, c: c + 1 })];
+          if (celMedicoSabado && celMedicoSabado.v && String(celMedicoSabado.v).trim()) {
+            const { nome, obs } = separarNomeEObservacao(celMedicoSabado.v);
+            linhas.push({
+              nomeCompleto, salaEspera, localizacao, vagasPorTurno: 16,
+              especialidadesConsultorio: especialidades, status: 'ativo',
+              dia: 'Sábado', turno: '08h às 12h', medico: nome,
+              especialidadeMedico: null, observacao: obs
+            });
+          }
+        }
+
+        if (!linhas.some(l => l.nomeCompleto === nomeCompleto)) {
+          linhas.push({
+            nomeCompleto, salaEspera, localizacao, vagasPorTurno: 16,
+            especialidadesConsultorio: especialidades, status: 'ativo',
+            dia: null, turno: null, medico: null, especialidadeMedico: null, observacao: ''
+          });
+        }
+      }
+    }
+  });
+
+  return { linhas, avisos };
+}
+
 // ---------- Passo 2: ler e processar o arquivo ----------
 document.getElementById('input-arquivo').addEventListener('change', async (e) => {
   const arquivo = e.target.files[0];
@@ -186,6 +324,12 @@ document.getElementById('input-arquivo').addEventListener('change', async (e) =>
     if (pareceFormatoReal(workbook)) {
       statusEl.textContent = 'Reconheci o formato da planilha da Unimed (abas "BASE ..."), processando...';
       const { linhas, avisos } = parseFormatoReal(workbook);
+      linhasImportacao = linhas;
+      montarResumo(banco.ler(), avisos);
+      statusEl.textContent = `Arquivo lido: ${arquivo.name} — ${linhas.length} linha(s) de horário/consultório encontradas.`;
+    } else if (pareceFormatoNovo2026(workbook)) {
+      statusEl.textContent = 'Reconheci o formato novo da planilha (consultórios lado a lado), processando...';
+      const { linhas, avisos } = parseFormatoNovo2026(workbook);
       linhasImportacao = linhas;
       montarResumo(banco.ler(), avisos);
       statusEl.textContent = `Arquivo lido: ${arquivo.name} — ${linhas.length} linha(s) de horário/consultório encontradas.`;
