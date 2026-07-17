@@ -96,6 +96,9 @@ function renderizarGrade() {
       <div class="resumo-grade">
         <span>Ocupados: <strong>${calc.ocupados}/${TOTAL_ENCAIXES}</strong></span>
         <span>Livres: <strong>${calc.livres}/${TOTAL_ENCAIXES}</strong></span>
+        <span>Instalada: <strong>${calc.instalada}</strong></span>
+        <span>Atual: <strong>${calc.atual}</strong></span>
+        <span>Livre: <strong>${calc.livre}</strong></span>
         <span>% Ocupação: <strong style="color:${c.cor}">${pct(calc.percentual)}</strong></span>
       </div>
       <table class="grade">
