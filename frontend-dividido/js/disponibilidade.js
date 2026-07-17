@@ -25,7 +25,6 @@ function carregarSeletorSala() {
   grupos.forEach((salasDoGrupo, nomeGrupo) => {
     html += `<optgroup label="${nomeGrupo}">`;
     html += salasDoGrupo.map(s => {
-      // Dentro do grupo, mostra só "Consultório N" (o nome do grupo já aparece no rótulo do optgroup)
       const rotulo = s.nome.includes(' - Consultório ') ? s.nome.split(' - Consultório ')[1] : s.nome;
       return `<option value="${s.id}">${s.nome.includes(' - Consultório ') ? 'Consultório ' + rotulo : rotulo}</option>`;
     }).join('');
@@ -51,8 +50,6 @@ function renderizarGrade() {
   const calc = calcularSala(dados, sala);
   const c = corPorOcupacao(calc.percentual);
 
-  // Se a sala tiver especialidades permitidas definidas, só esses médicos
-  // aparecem no dropdown. Sala sem restrição (lista vazia) aceita qualquer um.
   const restricoes = sala.especialidades_permitidas || [];
   const medicosPermitidosBase = restricoes.length > 0
     ? dados.medicos.filter(m => restricoes.includes(m.especialidade_id))
@@ -69,8 +66,6 @@ function renderizarGrade() {
       const chave = chaveCelula(sala.id, dia, turno);
       const celula = dados.escala[chave] || { medico_id: '', obs: '' };
 
-      // garante que o médico já atribuído continue aparecendo, mesmo que a
-      // restrição de especialidade da sala tenha mudado depois de ele ser escalado
       let medicosPermitidos = medicosPermitidosBase;
       if (celula.medico_id && !medicosPermitidos.some(m => String(m.id) === String(celula.medico_id))) {
         const medicoAtual = dados.medicos.find(m => String(m.id) === String(celula.medico_id));
@@ -80,9 +75,8 @@ function renderizarGrade() {
       const opcoesMedicos = medicosPermitidos.map(m =>
         `<option value="${m.id}" ${String(celula.medico_id) === String(m.id) ? 'selected' : ''}>${m.nome}</option>`
       ).join('');
-      const ocupada = !!celula.medico_id;
       return `
-        <td class="${ocupada ? 'celula-ocupada' : 'celula-livre'}">
+        <td>
           <select onchange="atualizarCelula('${chave}', this.value, null)">
             <option value="">— livre —</option>
             ${opcoesMedicos}
@@ -112,20 +106,25 @@ function renderizarGrade() {
   `;
 }
 
-function atualizarCelula(chave, medicoId, obs) {
+// Agora essa função fala com o servidor. Ela recebe a chave da célula
+// (sala|dia|turno) e o que mudou (médico OU observação — o outro vem null),
+// mistura com o valor atual do cache, manda pra API e recarrega os dados.
+async function atualizarCelula(chave, medicoId, obs) {
   const dados = banco.ler();
   const atual = dados.escala[chave] || { medico_id: '', obs: '' };
-  const novaCelula = {
-    medico_id: medicoId !== null ? (medicoId || null) : atual.medico_id,
-    obs: obs !== null ? obs : atual.obs
-  };
-  if (!novaCelula.medico_id && !novaCelula.obs) {
-    delete dados.escala[chave];
-  } else {
-    dados.escala[chave] = novaCelula;
+  const novoMedicoId = medicoId !== null ? (medicoId || null) : atual.medico_id;
+  const novoObs = obs !== null ? obs : atual.obs;
+  const [salaId, dia, turno] = chave.split('|');
+
+  try {
+    await api.atualizarCelula(salaId, dia, turno, novoMedicoId || null, novoObs || '');
+    await carregarDados();
+    renderizarGrade();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui salvar essa alteração. Confere sua internet e tenta de novo.');
+    renderizarGrade(); // volta a mostrar o que realmente está salvo
   }
-  banco.salvar(dados);
-  renderizarGrade();
 }
 
 function carregarPaginaDisponibilidade() {
@@ -133,15 +132,18 @@ function carregarPaginaDisponibilidade() {
   renderizarGrade();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   try {
+    await carregarDados();
     carregarPaginaDisponibilidade();
     document.getElementById('seletor-sala').addEventListener('change', renderizarGrade);
   } catch (erro) {
     console.error('Erro ao carregar a Disponibilidade:', erro);
     document.getElementById('area-grade').innerHTML =
-      `<div class="card card-pad vazio">Não consegui carregar os dados. Se você acabou de abrir o arquivo direto (file://), rode um servidor local — veja o README.</div>`;
+      `<div class="card card-pad vazio">Não consegui falar com o servidor. Confere sua internet ou tenta de novo em alguns segundos.</div>`;
   }
 });
 
+// window.atualizarPagina é chamado pelo botão "Atualizar" (via layout.js)
+// DEPOIS que ele já buscou os dados novos — aqui é só re-render.
 window.atualizarPagina = carregarPaginaDisponibilidade;

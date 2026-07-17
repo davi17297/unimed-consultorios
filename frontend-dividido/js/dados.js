@@ -1,11 +1,13 @@
 // ============================================================
 // dados.js
 // Único lugar com a REGRA DE NEGÓCIO e o ACESSO AOS DADOS.
-// Toda página do sistema inclui este arquivo antes do seu
-// próprio script. Nada de HTML/DOM aqui — só dados e cálculo.
+// Agora os dados vêm do backend (Railway), não mais do localStorage.
+// Toda página do sistema inclui este arquivo antes do seu próprio
+// script. Nada de HTML/DOM aqui — só dados, cálculo e chamadas à API.
 // ============================================================
 
-const CHAVE = 'consultorios_dados_v2';
+// Troque essa URL se o endereço do backend no Railway mudar.
+const API_BASE_URL = 'https://unimed-consultorios-production.up.railway.app';
 
 const DIAS = ['Segunda-Feira','Terça-Feira','Quarta-Feira','Quinta-Feira','Sexta-Feira','Sábado'];
 const DIAS_ABREV = { 'Segunda-Feira':'Seg', 'Terça-Feira':'Ter', 'Quarta-Feira':'Qua', 'Quinta-Feira':'Qui', 'Sexta-Feira':'Sex', 'Sábado':'Sáb' };
@@ -21,9 +23,6 @@ function chaveCelula(salaId, dia, turno) {
 }
 
 // Identifica a "Sala de Espera" (grupo físico) de um consultório.
-// Registros novos já guardam isso em sala.sala_espera; pra registros
-// antigos (criados antes dessa mudança), derivamos do nome, cortando
-// em " - Consultório " — ex: "Sala de Espera 2 - Consultório 1" -> "Sala de Espera 2".
 function obterGrupoSalaEspera(sala) {
   if (sala.sala_espera) return sala.sala_espera;
   return sala.nome.split(' - Consultório ')[0];
@@ -35,8 +34,7 @@ function diaDeHoje() {
   return mapa[new Date().getDay()] || null; // null = domingo, sem expediente
 }
 
-// Turnos livres de uma sala num dia qualquer da semana (não só hoje) —
-// usado pra deixar o painel "Livre agora" do dashboard trocar de dia ao clicar no gráfico.
+// Turnos livres de uma sala num dia qualquer da semana (não só hoje)
 function turnosLivresNoDia(dados, sala, dia) {
   return turnosDoDia(dia).filter(turno => {
     const c = dados.escala[chaveCelula(sala.id, dia, turno)];
@@ -45,36 +43,56 @@ function turnosLivresNoDia(dados, sala, dia) {
 }
 
 function estadoInicial() {
-  return { proximoId: 1, especialidades: [], medicos: [], salas: [], escala: {} };
+  return { especialidades: [], medicos: [], salas: [], escala: {} };
+}
+
+// ---------- Cache local dos dados vindos da API ----------
+// As telas leem daqui (síncrono). Quem preenche esse cache é o
+// carregarDados(), que precisa ser chamado (com "await") antes de
+// qualquer tela renderizar pela primeira vez.
+let dadosCache = estadoInicial();
+
+async function carregarDados() {
+  const resposta = await fetch(`${API_BASE_URL}/api/dados`);
+  if (!resposta.ok) throw new Error('O servidor respondeu com erro ao carregar os dados.');
+  dadosCache = await resposta.json();
+  return dadosCache;
 }
 
 const banco = {
+  // Devolve o snapshot mais recente já carregado (ver carregarDados()).
   ler() {
-    try {
-      const bruto = localStorage.getItem(CHAVE);
-      const dados = bruto ? JSON.parse(bruto) : estadoInicial();
-      // garante que todos os campos existam, mesmo se o dado salvo for de uma versão antiga
-      return {
-        proximoId: dados.proximoId || 1,
-        especialidades: dados.especialidades || [],
-        medicos: dados.medicos || [],
-        salas: dados.salas || [],
-        escala: dados.escala || {}
-      };
-    } catch (erro) {
-      console.error('Não consegui ler os dados salvos, começando do zero.', erro);
-      return estadoInicial();
-    }
-  },
-  salvar(dados) { localStorage.setItem(CHAVE, JSON.stringify(dados)); },
-  novoId(dados) { const id = dados.proximoId; dados.proximoId += 1; return id; }
+    return dadosCache;
+  }
 };
 
-function limparTudo() {
-  if (!confirm('Isso vai apagar todos os dados de teste salvos neste navegador. Confirma?')) return;
-  localStorage.removeItem(CHAVE);
-  location.reload();
+// ---------- Chamadas à API (gravação) ----------
+// Funções "cruas": só fazem a chamada e devolvem o resultado.
+// Depois de usar qualquer uma delas, chame carregarDados() de novo
+// pra atualizar o cache antes de re-renderizar a tela.
+async function chamarApi(caminho, metodo, corpo) {
+  const resposta = await fetch(`${API_BASE_URL}${caminho}`, {
+    method: metodo,
+    headers: corpo !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: corpo !== undefined ? JSON.stringify(corpo) : undefined
+  });
+  if (!resposta.ok) {
+    throw new Error(`Erro ao chamar a API (${metodo} ${caminho}): ${resposta.status}`);
+  }
+  if (resposta.status === 204) return null;
+  return resposta.json();
 }
+
+const api = {
+  criarEspecialidade: (nome) => chamarApi('/api/especialidades', 'POST', { nome }),
+  excluirEspecialidade: (id) => chamarApi(`/api/especialidades/${id}`, 'DELETE'),
+  criarMedico: (nome, especialidade_id) => chamarApi('/api/medicos', 'POST', { nome, especialidade_id }),
+  excluirMedico: (id) => chamarApi(`/api/medicos/${id}`, 'DELETE'),
+  criarSala: (dadosSala) => chamarApi('/api/salas', 'POST', dadosSala),
+  excluirSala: (id) => chamarApi(`/api/salas/${id}`, 'DELETE'),
+  atualizarCelula: (sala_id, dia_semana, turno, medico_id, obs) =>
+    chamarApi('/api/escala', 'PUT', { sala_id, dia_semana, turno, medico_id, obs })
+};
 
 const pct = (v) => (v * 100).toFixed(1) + '%';
 
@@ -86,8 +104,6 @@ function corPorOcupacao(percentual) {
 }
 
 // ---------- CÁLCULO POR SALA ----------
-// Instalada = vagas_por_turno x 16 | Atual = vagas_por_turno x ocupados
-// Livre = vagas_por_turno x livres | % = ocupados / 16
 function calcularSala(dados, sala) {
   let ocupados = 0;
   const encaixesLivresHoje = [];
@@ -128,7 +144,6 @@ function calcularDashboard() {
   };
 }
 
-// Resumo por dia da semana (usado no gráfico de barras e nos alertas)
 function calcularResumoPorDia(dados, salas) {
   return DIAS.map(dia => {
     const totalLivresNoDia = salas.reduce((soma, r) => {

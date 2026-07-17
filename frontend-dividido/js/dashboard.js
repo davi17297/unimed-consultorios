@@ -145,14 +145,18 @@ function selecionarDiaPainel(dia) {
   carregarDashboard();
 }
 
+// window.atualizarPagina é chamado pelo botão "Atualizar" do topo (via
+// layout.js), DEPOIS que ele já buscou os dados novos — aqui é só re-render.
 window.atualizarPagina = carregarDashboard;
-document.addEventListener('DOMContentLoaded', () => {
+
+document.addEventListener('DOMContentLoaded', async () => {
   try {
+    await carregarDados();
     carregarDashboard();
   } catch (erro) {
     console.error('Erro ao carregar o Dashboard:', erro);
     document.getElementById('grafico-barras').innerHTML = '';
     document.getElementById('alertas').innerHTML =
-      `<p class="vazio">Não consegui carregar os dados. Abra o Console (F12) e me manda o que aparecer em vermelho.</p>`;
+      `<p class="vazio">Não consegui falar com o servidor. Confere sua internet ou tenta de novo em alguns segundos.</p>`;
   }
 });

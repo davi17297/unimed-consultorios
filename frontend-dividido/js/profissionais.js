@@ -22,48 +22,69 @@ function carregarPaginaProfissionais() {
   }).join('') || `<tr><td class="vazio">Nenhum médico encontrado.</td></tr>`;
 }
 
-function excluirEspecialidade(id) {
+async function excluirEspecialidade(id) {
   if (!confirm('Excluir esta especialidade?')) return;
-  const dados = banco.ler();
-  dados.especialidades = dados.especialidades.filter(e => e.id !== id);
-  banco.salvar(dados);
-  carregarPaginaProfissionais();
+  try {
+    await api.excluirEspecialidade(id);
+    await carregarDados();
+    carregarPaginaProfissionais();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui excluir. Confere sua internet e tenta de novo.');
+  }
 }
 
-function excluirMedico(id) {
+async function excluirMedico(id) {
   if (!confirm('Excluir este médico? Ele será removido de qualquer encaixe da grade.')) return;
-  const dados = banco.ler();
-  dados.medicos = dados.medicos.filter(m => m.id !== id);
-  Object.keys(dados.escala).forEach(chave => {
-    if (String(dados.escala[chave].medico_id) === String(id)) delete dados.escala[chave];
-  });
-  banco.salvar(dados);
-  carregarPaginaProfissionais();
+  try {
+    await api.excluirMedico(id);
+    await carregarDados();
+    carregarPaginaProfissionais();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui excluir. Confere sua internet e tenta de novo.');
+  }
 }
 
-document.getElementById('form-especialidade').addEventListener('submit', (e) => {
+document.getElementById('form-especialidade').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const dados = banco.ler();
-  dados.especialidades.push({ id: banco.novoId(dados), nome: e.target.nome.value });
-  banco.salvar(dados);
-  e.target.reset();
-  carregarPaginaProfissionais();
+  const nome = e.target.nome.value;
+  try {
+    await api.criarEspecialidade(nome);
+    await carregarDados();
+    e.target.reset();
+    carregarPaginaProfissionais();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui salvar. Confere sua internet e tenta de novo.');
+  }
 });
 
-document.getElementById('form-medico').addEventListener('submit', (e) => {
+document.getElementById('form-medico').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
-  const dados = banco.ler();
-  dados.medicos.push({
-    id: banco.novoId(dados),
-    nome: f.nome.value,
-    especialidade_id: f.especialidade_id.value ? Number(f.especialidade_id.value) : null
-  });
-  banco.salvar(dados);
-  f.reset();
-  carregarPaginaProfissionais();
+  try {
+    await api.criarMedico(f.nome.value, f.especialidade_id.value ? Number(f.especialidade_id.value) : null);
+    await carregarDados();
+    f.reset();
+    carregarPaginaProfissionais();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui salvar. Confere sua internet e tenta de novo.');
+  }
 });
 
 document.getElementById('busca').addEventListener('input', carregarPaginaProfissionais);
-document.addEventListener('DOMContentLoaded', carregarPaginaProfissionais);
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await carregarDados();
+    carregarPaginaProfissionais();
+  } catch (erro) {
+    console.error('Erro ao carregar Profissionais:', erro);
+    document.getElementById('tabela-medicos').innerHTML =
+      `<tr><td class="vazio">Não consegui falar com o servidor. Confere sua internet ou tenta de novo em alguns segundos.</td></tr>`;
+  }
+});
+
 window.atualizarPagina = carregarPaginaProfissionais;

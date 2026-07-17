@@ -1,9 +1,9 @@
 // ============================================================
 // layout.js
 // Comportamento comum do topo (data/hora e botão "Atualizar").
-// Cada página, se quiser, define window.atualizarPagina = fn
-// ANTES de incluir este script — o botão chama essa função em
-// vez de recarregar a página inteira.
+// Cada página define window.atualizarPagina = fn (uma função que
+// SÓ RE-RENDERIZA usando o cache, sem buscar na rede de novo) antes
+// de incluir este script.
 // ============================================================
 
 function atualizarRelogio() {
@@ -18,11 +18,18 @@ function atualizarRelogio() {
   }
 }
 
-function atualizarTudo() {
+// Chamado pelo botão "Atualizar" do topo: busca os dados de novo no
+// servidor e manda a página re-renderizar com o que chegou.
+async function atualizarTudo() {
+  try {
+    await carregarDados();
+  } catch (erro) {
+    console.error('Erro ao atualizar os dados:', erro);
+    alert('Não consegui falar com o servidor agora. Confere sua internet e tenta de novo.');
+    return;
+  }
   if (typeof window.atualizarPagina === 'function') {
     window.atualizarPagina();
-  } else {
-    location.reload();
   }
   atualizarRelogio();
 }
