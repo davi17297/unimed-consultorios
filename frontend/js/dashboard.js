@@ -97,7 +97,7 @@ function carregarDashboard() {
   // ---- Tabela de consultórios ----
   const corpo = document.getElementById('tabela-dashboard');
   if (salas.length === 0) {
-    corpo.innerHTML = `<tr><td colspan="4" class="vazio">Nenhum consultório cadastrado ainda. Vá em "Consultórios" para começar.</td></tr>`;
+    corpo.innerHTML = `<tr><td colspan="7" class="vazio">Nenhum consultório cadastrado ainda. Vá em "Consultórios" para começar.</td></tr>`;
     return;
   }
   corpo.innerHTML = salas.map(r => {
@@ -113,7 +113,10 @@ function carregarDashboard() {
           <div class="barra-mini-track"><div class="barra-mini-fill" style="width:${(r.percentual*100).toFixed(0)}%;background:${c.cor}"></div></div>
           <span class="num" style="color:${c.cor};font-weight:600">${pct(r.percentual)}</span>
         </td>
+        <td class="num">${r.instalada}</td>
+        <td class="num">${r.atual}</td>
         <td class="num">${r.livres}/${TOTAL_ENCAIXES}</td>
+        <td class="num">${r.livre}</td>
         <td>${statusManutencao ? `<span class="pill pill-vermelho">Manutenção</span>` : `<span class="pill pill-verde">Ativo</span>`}</td>
       </tr>
     `;
