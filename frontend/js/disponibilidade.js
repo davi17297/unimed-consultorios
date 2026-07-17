@@ -73,7 +73,7 @@ function renderizarGrade() {
       }
 
       const opcoesMedicos = medicosPermitidos.map(m =>
-        `<option value="${m.id}" ${String(celula.medico_id) === String(m.id) ? 'selected' : ''}>${m.nome}</option>`
+        `<option value="${m.id}" ${String(celula.medico_id) === String(m.id) ? 'selected' : ''}>${formatarNomeMedico(m)}</option>`
       ).join('');
       return `
         <td>
