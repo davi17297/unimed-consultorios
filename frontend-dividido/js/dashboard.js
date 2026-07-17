@@ -11,31 +11,38 @@ function carregarDashboard() {
   const dados = banco.ler();
   const { salas, totais } = calcularDashboard();
   const hoje = diaDeHoje();
+  const turno = turnoAtual(); // null = fora do expediente agora
 
   if (!diaPainelLivre) diaPainelLivre = hoje || 'Segunda-Feira';
 
-  let salasLivresHoje = 0;
-  let salasOcupadasHoje = 0;
+  let salasLivresAgora = 0;
+  let salasOcupadasAgora = 0;
   let horariosLivresHoje = 0;
 
   salas.forEach(r => {
     const emManutencao = (r.sala.status === 'manutencao');
     if (hoje) horariosLivresHoje += r.encaixesLivresHoje.length;
-    if (!hoje || emManutencao) {
-      salasOcupadasHoje += emManutencao ? 1 : 0;
-    } else if (r.encaixesLivresHoje.length > 0) {
-      salasLivresHoje += 1;
+
+    if (!turno) return; // fora do expediente: não conta livre nem ocupado
+
+    if (emManutencao) {
+      salasOcupadasAgora += 1;
+      return;
+    }
+    const celulaAgora = dados.escala[chaveCelula(r.sala.id, hoje, turno)];
+    if (celulaAgora && celulaAgora.medico_id) {
+      salasOcupadasAgora += 1;
     } else {
-      salasOcupadasHoje += 1;
+      salasLivresAgora += 1;
     }
   });
 
-  document.getElementById('card-livres').textContent = salasLivresHoje;
-  document.getElementById('card-ocupados').textContent = salasOcupadasHoje;
+  document.getElementById('card-livres').textContent = turno ? salasLivresAgora : '—';
+  document.getElementById('card-ocupados').textContent = turno ? salasOcupadasAgora : '—';
   document.getElementById('card-ocupacao').textContent = pct(totais.percentual);
   document.getElementById('card-horarios-hoje').textContent = hoje ? horariosLivresHoje : '—';
-  document.getElementById('card-livres-rodape').textContent = hoje ? `de ${salas.length} consultórios` : 'sem expediente (domingo)';
-  document.getElementById('card-ocupados-rodape').textContent = hoje ? 'incluindo manutenção' : '—';
+  document.getElementById('card-livres-rodape').textContent = turno ? `agora (${turno})` : 'fora do expediente agora';
+  document.getElementById('card-ocupados-rodape').textContent = turno ? 'incluindo manutenção' : 'fora do expediente agora';
 
   // ---- Gráfico de barras: ocupação por dia da semana (clicável) ----
   const resumoPorDia = calcularResumoPorDia(dados, salas);

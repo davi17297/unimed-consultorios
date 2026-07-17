@@ -34,6 +34,22 @@ function diaDeHoje() {
   return mapa[new Date().getDay()] || null; // null = domingo, sem expediente
 }
 
+// Descobre em qual turno estamos AGORA (considerando a hora do relógio,
+// não só o dia da semana). Retorna null fora do expediente — por exemplo:
+// depois das 20h, antes das 8h, domingo o dia todo, ou sábado à tarde
+// (já que sábado só tem turno de manhã).
+function turnoAtual() {
+  const hoje = diaDeHoje();
+  if (!hoje) return null; // domingo
+  const hora = new Date().getHours();
+  const turnosValidosHoje = turnosDoDia(hoje);
+  let turno = null;
+  if (hora >= 8 && hora < 12) turno = '08h às 12h';
+  else if (hora >= 12 && hora < 16) turno = '12h às 16h';
+  else if (hora >= 16 && hora < 20) turno = '16h às 20h';
+  return turno && turnosValidosHoje.includes(turno) ? turno : null;
+}
+
 // Turnos livres de uma sala num dia qualquer da semana (não só hoje)
 function turnosLivresNoDia(dados, sala, dia) {
   return turnosDoDia(dia).filter(turno => {

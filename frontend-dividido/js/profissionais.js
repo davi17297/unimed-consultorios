@@ -5,7 +5,6 @@
 
 function carregarPaginaProfissionais() {
   const dados = banco.ler();
-  const termoBusca = (document.getElementById('busca').value || '').toLowerCase();
 
   document.getElementById('tabela-especialidades').innerHTML = dados.especialidades.map(e => `
     <tr><td>${e.nome}</td><td style="text-align:right"><button class="acao-icone" onclick="excluirEspecialidade(${e.id})">Excluir</button></td></tr>
@@ -15,7 +14,7 @@ function carregarPaginaProfissionais() {
   selectEsp.innerHTML = '<option value="">Especialidade...</option>' +
     dados.especialidades.map(e => `<option value="${e.id}">${e.nome}</option>`).join('');
 
-  const medicosFiltrados = dados.medicos.filter(m => m.nome.toLowerCase().includes(termoBusca));
+  const medicosFiltrados = dados.medicos;
   document.getElementById('tabela-medicos').innerHTML = medicosFiltrados.map(m => {
     const esp = dados.especialidades.find(e => e.id === m.especialidade_id);
     return `<tr><td>${m.nome}</td><td>${esp ? esp.nome : ''}</td><td style="text-align:right"><button class="acao-icone" onclick="excluirMedico(${m.id})">Excluir</button></td></tr>`;
@@ -73,8 +72,6 @@ document.getElementById('form-medico').addEventListener('submit', async (e) => {
     alert('Não consegui salvar. Confere sua internet e tenta de novo.');
   }
 });
-
-document.getElementById('busca').addEventListener('input', carregarPaginaProfissionais);
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {

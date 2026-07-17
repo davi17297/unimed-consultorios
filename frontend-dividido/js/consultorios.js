@@ -26,9 +26,7 @@ function nomesEspecialidadesDaSala(dados, sala) {
 
 function carregarTabelaSalas() {
   const dados = banco.ler();
-  const termoBusca = (document.getElementById('busca').value || '').toLowerCase();
-
-  const salasFiltradas = dados.salas.filter(s => s.nome.toLowerCase().includes(termoBusca));
+  const salasFiltradas = dados.salas;
 
   const grupos = new Map();
   salasFiltradas.forEach(s => {
@@ -118,8 +116,6 @@ document.getElementById('form-sala').addEventListener('submit', async (e) => {
     botao.textContent = 'Adicionar';
   }
 });
-
-document.getElementById('busca').addEventListener('input', carregarTabelaSalas);
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
