@@ -540,6 +540,7 @@ document.getElementById('botao-confirmar').addEventListener('click', async () =>
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('link-exportar').href = `${API_BASE_URL}/api/exportar-planilha`;
   try {
     await carregarDados();
   } catch (erro) {

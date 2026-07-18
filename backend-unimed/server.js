@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
+const ExcelJS = require('exceljs');
 require('dotenv').config();
 
 const app = express();
@@ -262,6 +263,147 @@ app.delete('/api/reposicoes/:id', async (req, res) => {
   } catch (erro) {
     console.error(erro);
     res.status(500).json({ erro: 'Erro ao excluir reposição' });
+  }
+});
+
+// ---------- EXPORTAR PLANILHA ----------
+// Gera um .xlsx no mesmo "espírito visual" da planilha original da Unimed
+// (uma aba por local, um bloco colorido por consultório, grade Dia x Turno),
+// mas com os dados atuais do banco. Os consultórios saem empilhados (um
+// embaixo do outro) em vez de lado a lado, pra simplificar a geração.
+const DIAS_EXPORT = ['Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira'];
+const TURNOS_EXPORT = [
+  { chave: '08h às 12h', rotulo: '08H ÀS 12H' },
+  { chave: '12h às 16h', rotulo: '12H ÀS 16H' },
+  { chave: '16h às 20h', rotulo: '16H ÀS 20H' }
+];
+const VERDE_UNIMED = 'FF00693E';
+
+function sanitizarNomeAba(nome) {
+  const limpo = (nome || 'Geral').replace(/[/\\?*[\]:]/g, ' ').trim();
+  return limpo.slice(0, 31) || 'Geral';
+}
+
+function formatarNomeMedicoExport(medico) {
+  if (!medico) return '';
+  const titulo = (medico.titulo || '').trim();
+  const nome = (medico.nome || '').trim();
+  if (!titulo || nome.toLowerCase().startsWith(titulo.toLowerCase())) return nome;
+  return `${titulo} ${nome}`;
+}
+
+app.get('/api/exportar-planilha', async (req, res) => {
+  try {
+    const [especialidades, medicos, salasRaw, salaEsp, escalaRaw] = await Promise.all([
+      pool.query('SELECT * FROM especialidades ORDER BY nome'),
+      pool.query('SELECT * FROM medicos ORDER BY nome'),
+      pool.query('SELECT * FROM salas ORDER BY nome'),
+      pool.query('SELECT * FROM sala_especialidades'),
+      pool.query('SELECT * FROM escala')
+    ]);
+
+    const escalaMapa = {};
+    escalaRaw.rows.forEach(e => {
+      escalaMapa[`${e.sala_id}|${e.dia_semana}|${e.turno}`] = e;
+    });
+
+    // Agrupa as salas por localização (cada uma vira uma aba)
+    const grupos = new Map();
+    salasRaw.rows.forEach(s => {
+      const local = s.localizacao || 'Sem local definido';
+      if (!grupos.has(local)) grupos.set(local, []);
+      grupos.get(local).push(s);
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Sistema Unimed Goiânia';
+    workbook.created = new Date();
+
+    grupos.forEach((salasDoGrupo, nomeLocal) => {
+      const ws = workbook.addWorksheet(sanitizarNomeAba(nomeLocal));
+      ws.columns = [
+        { width: 20 }, { width: 26 }, { width: 26 }, { width: 26 }
+      ];
+
+      let linhaAtual = 1;
+
+      salasDoGrupo.forEach(sala => {
+        const idsEspecialidades = salaEsp.rows.filter(e => e.sala_id === sala.id).map(e => e.especialidade_id);
+        const nomesEspecialidades = especialidades.rows
+          .filter(e => idsEspecialidades.includes(e.id))
+          .map(e => e.nome)
+          .join(' | ');
+
+        // ---- Linha do título do bloco (colorida, com especialidades + nome) ----
+        const linhaTitulo = linhaAtual;
+        ws.mergeCells(linhaTitulo, 1, linhaTitulo, 4);
+        const celTitulo = ws.getCell(linhaTitulo, 1);
+        celTitulo.value = nomesEspecialidades ? `${nomesEspecialidades}\n${sala.nome}` : sala.nome;
+        celTitulo.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+        celTitulo.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+        celTitulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+        ws.getRow(linhaTitulo).height = 34;
+        linhaAtual++;
+
+        // ---- Linha de cabeçalho: DIA | Turno 1 | Turno 2 | Turno 3 ----
+        const linhaCabecalho = linhaAtual;
+        ws.getCell(linhaCabecalho, 1).value = 'DIA';
+        TURNOS_EXPORT.forEach((t, i) => {
+          ws.getCell(linhaCabecalho, i + 2).value = t.rotulo;
+        });
+        ws.getRow(linhaCabecalho).eachCell(cel => {
+          cel.font = { bold: true };
+          cel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE4F5EC' } };
+          cel.alignment = { horizontal: 'center' };
+        });
+        linhaAtual++;
+
+        // ---- Segunda a Sexta ----
+        DIAS_EXPORT.forEach(dia => {
+          const linha = linhaAtual;
+          ws.getCell(linha, 1).value = dia;
+          ws.getCell(linha, 1).font = { bold: true };
+          TURNOS_EXPORT.forEach((t, i) => {
+            const entrada = escalaMapa[`${sala.id}|${dia}|${t.chave}`];
+            if (entrada && entrada.medico_id) {
+              const medico = medicos.rows.find(m => m.id === entrada.medico_id);
+              let texto = formatarNomeMedicoExport(medico);
+              if (entrada.observacao) texto += ` (${entrada.observacao})`;
+              ws.getCell(linha, i + 2).value = texto;
+            }
+          });
+          linhaAtual++;
+        });
+
+        // ---- Sábado (só o primeiro turno) ----
+        const linhaSabadoLabel = linhaAtual;
+        ws.getCell(linhaSabadoLabel, 1).value = 'Sábado';
+        ws.getCell(linhaSabadoLabel, 1).font = { bold: true };
+        ws.getCell(linhaSabadoLabel, 2).value = TURNOS_EXPORT[0].rotulo;
+        linhaAtual++;
+
+        const linhaSabadoMedico = linhaAtual;
+        const entradaSabado = escalaMapa[`${sala.id}|Sábado|${TURNOS_EXPORT[0].chave}`];
+        if (entradaSabado && entradaSabado.medico_id) {
+          const medico = medicos.rows.find(m => m.id === entradaSabado.medico_id);
+          let texto = formatarNomeMedicoExport(medico);
+          if (entradaSabado.observacao) texto += ` (${entradaSabado.observacao})`;
+          ws.getCell(linhaSabadoMedico, 2).value = texto;
+        }
+        linhaAtual++;
+
+        linhaAtual++; // linha em branco entre um consultório e o próximo
+      });
+    });
+
+    const nomeArquivo = `escala-unimed-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao gerar a planilha' });
   }
 });
 
