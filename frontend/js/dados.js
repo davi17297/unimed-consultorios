@@ -18,6 +18,11 @@ function turnosDoDia(dia) {
 // Grade fixa: Segunda a Sexta x 3 turnos (15) + Sábado de manhã (1) = 16 encaixes/semana
 const TOTAL_ENCAIXES = DIAS.reduce((soma, d) => soma + turnosDoDia(d).length, 0);
 
+// A grade se repete toda semana, mas a capacidade em pacientes (Instalada/
+// Atual/Livre) é contada pro MÊS inteiro, não só uma semana — por isso
+// multiplicamos por 4 (aproximação de semanas num mês).
+const SEMANAS_POR_MES = 4;
+
 function chaveCelula(salaId, dia, turno) {
   return `${salaId}|${dia}|${turno}`;
 }
@@ -163,10 +168,16 @@ function calcularSala(dados, sala) {
   });
 
   const livres = TOTAL_ENCAIXES - ocupados;
-  const livre = instalada - atual;
-  const percentual = instalada > 0 ? atual / instalada : 0;
+  const instaladaMensal = instalada * SEMANAS_POR_MES;
+  const atualMensal = atual * SEMANAS_POR_MES;
+  const livreMensal = instaladaMensal - atualMensal;
+  const percentual = instaladaMensal > 0 ? atualMensal / instaladaMensal : 0;
 
-  return { sala, ocupados, livres, vagas: vagasPadrao, instalada, atual, livre, percentual, encaixesLivresHoje };
+  return {
+    sala, ocupados, livres, vagas: vagasPadrao,
+    instalada: instaladaMensal, atual: atualMensal, livre: livreMensal,
+    percentual, encaixesLivresHoje
+  };
 }
 
 function calcularDashboard() {
