@@ -51,3 +51,18 @@ CREATE TABLE IF NOT EXISTS escala (
 
 CREATE INDEX IF NOT EXISTS idx_escala_sala ON escala(sala_id);
 CREATE INDEX IF NOT EXISTS idx_medicos_especialidade ON medicos(especialidade_id);
+
+-- Reposições: quando um médico falta um plantão fixo e repõe em outro dia
+-- COM DATA MARCADA (não é recorrente como a escala normal), usando
+-- qualquer consultório que esteja vago naquela data/turno.
+CREATE TABLE IF NOT EXISTS reposicoes (
+  id SERIAL PRIMARY KEY,
+  medico_id INTEGER NOT NULL REFERENCES medicos(id) ON DELETE CASCADE,
+  sala_id INTEGER NOT NULL REFERENCES salas(id) ON DELETE CASCADE,
+  data DATE NOT NULL,
+  turno TEXT NOT NULL CHECK (turno IN ('08h às 12h','12h às 16h','16h às 20h')),
+  motivo TEXT NOT NULL,
+  observacao TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_reposicoes_data ON reposicoes(data);

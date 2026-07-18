@@ -15,12 +15,13 @@ app.use(express.json());
 // ============================================================
 app.get('/api/dados', async (req, res) => {
   try {
-    const [especialidades, medicos, salasRaw, salaEsp, escalaRaw] = await Promise.all([
+    const [especialidades, medicos, salasRaw, salaEsp, escalaRaw, reposicoes] = await Promise.all([
       pool.query('SELECT * FROM especialidades ORDER BY nome'),
       pool.query('SELECT * FROM medicos ORDER BY nome'),
       pool.query('SELECT * FROM salas ORDER BY nome'),
       pool.query('SELECT * FROM sala_especialidades'),
-      pool.query('SELECT * FROM escala')
+      pool.query('SELECT * FROM escala'),
+      pool.query('SELECT * FROM reposicoes ORDER BY data DESC')
     ]);
 
     const salas = salasRaw.rows.map(s => ({
@@ -47,7 +48,8 @@ app.get('/api/dados', async (req, res) => {
       especialidades: especialidades.rows,
       medicos: medicos.rows,
       salas,
-      escala
+      escala,
+      reposicoes: reposicoes.rows
     });
   } catch (erro) {
     console.error(erro);
@@ -211,6 +213,37 @@ app.put('/api/escala', async (req, res) => {
   } catch (erro) {
     console.error(erro);
     res.status(500).json({ erro: 'Erro ao atualizar a escala' });
+  }
+});
+
+// ---------- REPOSIÇÕES ----------
+// Um médico que faltou um plantão fixo e repõe em outra data específica
+// (não recorrente), em qualquer consultório vago naquele dia/turno.
+app.post('/api/reposicoes', async (req, res) => {
+  const { medico_id, sala_id, data, turno, motivo, observacao } = req.body;
+  if (!medico_id || !sala_id || !data || !turno || !motivo) {
+    return res.status(400).json({ erro: 'medico_id, sala_id, data, turno e motivo são obrigatórios' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO reposicoes (medico_id, sala_id, data, turno, motivo, observacao)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [medico_id, sala_id, data, turno, motivo, observacao || null]
+    );
+    res.status(201).json(rows[0]);
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao adicionar reposição' });
+  }
+});
+
+app.delete('/api/reposicoes/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM reposicoes WHERE id=$1', [req.params.id]);
+    res.status(204).end();
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao excluir reposição' });
   }
 });
 
