@@ -3,9 +3,11 @@
 // específicas (fora da escala fixa semanal). Depende de dados.js.
 // ============================================================
 
+let reposicaoEditandoId = null;
+
 // Consultórios "vagos" numa data+turno: livres na escala fixa daquele dia
 // da semana E ainda não usados por outra reposição na mesma data/turno.
-function obterSalasVagas(dados, dataISO, turno) {
+function obterSalasVagas(dados, dataISO, turno, idExcluir) {
   const diaSemana = diaDaSemanaDeData(dataISO);
   if (!diaSemana || !turno) return [];
 
@@ -16,7 +18,9 @@ function obterSalasVagas(dados, dataISO, turno) {
   });
 
   const ocupadasPorReposicao = new Set(
-    dados.reposicoes.filter(r => r.data === dataISO && r.turno === turno).map(r => r.sala_id)
+    dados.reposicoes
+      .filter(r => r.data === dataISO && r.turno === turno && r.id !== idExcluir)
+      .map(r => r.sala_id)
   );
 
   return dados.salas.filter(s =>
@@ -51,6 +55,7 @@ function atualizarSalasVagas() {
   const data = document.getElementById('campo-data').value;
   const turno = document.getElementById('campo-turno').value;
   const selectSala = document.getElementById('campo-sala');
+  const valorAtual = selectSala.value;
   const aviso = document.getElementById('aviso-consultorios-vagos');
 
   if (!data || !turno) {
@@ -66,12 +71,13 @@ function atualizarSalasVagas() {
     return;
   }
 
-  const vagas = obterSalasVagas(dados, data, turno);
+  const vagas = obterSalasVagas(dados, data, turno, reposicaoEditandoId);
   if (vagas.length === 0) {
     selectSala.innerHTML = '<option value="">Nenhum consultório vago nesse dia/turno</option>';
   } else {
     selectSala.innerHTML = '<option value="">Consultório...</option>' +
       vagas.map(s => `<option value="${s.id}">${s.nome}${s.localizacao ? ' — ' + s.localizacao : ''}</option>`).join('');
+    if (valorAtual && vagas.some(s => String(s.id) === valorAtual)) selectSala.value = valorAtual;
   }
   aviso.textContent = `${vagas.length} consultório(s) vago(s) em ${diaSemana}, ${turno}.`;
 }
@@ -82,20 +88,26 @@ document.getElementById('campo-turno').addEventListener('change', atualizarSalas
 document.getElementById('form-reposicao').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
-  const botao = f.querySelector('button[type=submit]');
+  const botao = document.getElementById('botao-reposicao');
   botao.disabled = true;
   botao.textContent = 'Salvando...';
   try {
-    await api.criarReposicao(
+    const args = [
       Number(f.medico_id.value),
       Number(f.sala_id.value),
       f.data.value,
       f.turno.value,
       f.motivo.value,
-      f.observacao.value || null
-    );
+      f.observacao.value || null,
+      f.pacientes_atendidos.value ? Number(f.pacientes_atendidos.value) : null
+    ];
+    if (reposicaoEditandoId) {
+      await api.editarReposicao(reposicaoEditandoId, ...args);
+    } else {
+      await api.criarReposicao(...args);
+    }
     await carregarDados();
-    f.reset();
+    cancelarEdicaoReposicao();
     carregarFormularios();
     carregarResumoEtabela();
   } catch (erro) {
@@ -103,15 +115,47 @@ document.getElementById('form-reposicao').addEventListener('submit', async (e) =
     alert('Não consegui salvar essa reposição. Confere sua internet e tenta de novo.');
   } finally {
     botao.disabled = false;
-    botao.textContent = 'Registrar';
+    botao.textContent = reposicaoEditandoId ? 'Salvar edição' : 'Registrar';
   }
 });
+
+function editarReposicao(id) {
+  const dados = banco.ler();
+  const r = dados.reposicoes.find(x => x.id === id);
+  if (!r) return;
+  reposicaoEditandoId = id;
+
+  const f = document.getElementById('form-reposicao');
+  f.medico_id.value = r.medico_id;
+  f.data.value = r.data.slice(0, 10);
+  f.turno.value = r.turno;
+  atualizarSalasVagas(); // recalcula os "vagos", já incluindo a sala atual como opção válida
+  f.sala_id.value = r.sala_id;
+  f.motivo.value = r.motivo;
+  f.pacientes_atendidos.value = r.pacientes_atendidos || '';
+  f.observacao.value = r.observacao || '';
+
+  document.getElementById('botao-reposicao').textContent = 'Salvar edição';
+  document.getElementById('cancelar-edicao-reposicao').classList.remove('oculto');
+  f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelarEdicaoReposicao() {
+  reposicaoEditandoId = null;
+  const f = document.getElementById('form-reposicao');
+  f.reset();
+  document.getElementById('campo-sala').innerHTML = '<option value="">Escolha data e turno primeiro...</option>';
+  document.getElementById('aviso-consultorios-vagos').textContent = '';
+  document.getElementById('botao-reposicao').textContent = 'Registrar';
+  document.getElementById('cancelar-edicao-reposicao').classList.add('oculto');
+}
 
 async function excluirReposicao(id) {
   if (!confirm('Excluir esse registro de reposição?')) return;
   try {
     await api.excluirReposicao(id);
     await carregarDados();
+    if (reposicaoEditandoId === id) cancelarEdicaoReposicao();
     carregarResumoEtabela();
   } catch (erro) {
     console.error(erro);
@@ -137,7 +181,7 @@ function carregarResumoEtabela() {
   const linhasTabela = doMes.map(r => {
     const medico = dados.medicos.find(m => m.id === r.medico_id);
     const sala = dados.salas.find(s => s.id === r.sala_id);
-    const pacientes = capacidadeDoMedico(medico, sala);
+    const pacientes = r.pacientes_atendidos || capacidadeDoMedico(medico, sala);
     totalPacientes += pacientes;
 
     porMotivo[r.motivo] = porMotivo[r.motivo] || { qtd: 0, pacientes: 0 };
@@ -158,7 +202,10 @@ function carregarResumoEtabela() {
         <td>${r.motivo}</td>
         <td class="num">${pacientes}</td>
         <td>${r.observacao || ''}</td>
-        <td style="text-align:right"><button class="acao-icone" onclick="excluirReposicao(${r.id})">Excluir</button></td>
+        <td style="text-align:right">
+          <button class="acao-icone" onclick="editarReposicao(${r.id})">Editar</button>
+          <button class="acao-icone" onclick="excluirReposicao(${r.id})">Excluir</button>
+        </td>
       </tr>
     `;
   });

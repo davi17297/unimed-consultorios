@@ -137,8 +137,10 @@ const api = {
   excluirSala: (id) => chamarApi(`/api/salas/${id}`, 'DELETE'),
   atualizarCelula: (sala_id, dia_semana, turno, medico_id, obs) =>
     chamarApi('/api/escala', 'PUT', { sala_id, dia_semana, turno, medico_id, obs }),
-  criarReposicao: (medico_id, sala_id, data, turno, motivo, observacao) =>
-    chamarApi('/api/reposicoes', 'POST', { medico_id, sala_id, data, turno, motivo, observacao }),
+  criarReposicao: (medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos) =>
+    chamarApi('/api/reposicoes', 'POST', { medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos }),
+  editarReposicao: (id, medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos) =>
+    chamarApi(`/api/reposicoes/${id}`, 'PUT', { medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos }),
   excluirReposicao: (id) => chamarApi(`/api/reposicoes/${id}`, 'DELETE')
 };
 

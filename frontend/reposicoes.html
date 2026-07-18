@@ -70,9 +70,14 @@
             <select name="motivo" id="campo-motivo" required>
               <option value="">Motivo...</option>
             </select>
+            <input name="pacientes_atendidos" id="campo-pacientes" type="number" min="1" placeholder="Pacientes (opcional)" style="max-width:150px">
             <input name="observacao" placeholder="Observação (opcional)" style="min-width:180px">
-            <button class="btn btn-primario" type="submit">Registrar</button>
+            <button class="btn btn-primario" type="submit" id="botao-reposicao">Registrar</button>
+            <button type="button" class="btn oculto" id="cancelar-edicao-reposicao" onclick="cancelarEdicaoReposicao()">Cancelar</button>
           </form>
+          <p style="font-size:12px;color:var(--ink-400);margin:-4px 0 4px">
+            Se não preencher "Pacientes", o sistema usa a capacidade normal do médico. Preencha só se esse dia específico foi diferente.
+          </p>
           <p id="aviso-consultorios-vagos" style="font-size:12px;color:var(--ink-400);margin-top:4px"></p>
         </div>
 

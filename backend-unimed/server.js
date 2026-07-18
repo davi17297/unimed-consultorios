@@ -21,7 +21,7 @@ app.get('/api/dados', async (req, res) => {
       pool.query('SELECT * FROM salas ORDER BY nome'),
       pool.query('SELECT * FROM sala_especialidades'),
       pool.query('SELECT * FROM escala'),
-      pool.query("SELECT id, medico_id, sala_id, to_char(data, 'YYYY-MM-DD') AS data, turno, motivo, observacao FROM reposicoes ORDER BY data DESC")
+      pool.query("SELECT id, medico_id, sala_id, to_char(data, 'YYYY-MM-DD') AS data, turno, motivo, observacao, pacientes_atendidos FROM reposicoes ORDER BY data DESC")
     ]);
 
     const salas = salasRaw.rows.map(s => ({
@@ -220,20 +220,38 @@ app.put('/api/escala', async (req, res) => {
 // Um médico que faltou um plantão fixo e repõe em outra data específica
 // (não recorrente), em qualquer consultório vago naquele dia/turno.
 app.post('/api/reposicoes', async (req, res) => {
-  const { medico_id, sala_id, data, turno, motivo, observacao } = req.body;
+  const { medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos } = req.body;
   if (!medico_id || !sala_id || !data || !turno || !motivo) {
     return res.status(400).json({ erro: 'medico_id, sala_id, data, turno e motivo são obrigatórios' });
   }
   try {
     const { rows } = await pool.query(
-      `INSERT INTO reposicoes (medico_id, sala_id, data, turno, motivo, observacao)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [medico_id, sala_id, data, turno, motivo, observacao || null]
+      `INSERT INTO reposicoes (medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [medico_id, sala_id, data, turno, motivo, observacao || null, pacientes_atendidos || null]
     );
     res.status(201).json(rows[0]);
   } catch (erro) {
     console.error(erro);
     res.status(500).json({ erro: 'Erro ao adicionar reposição' });
+  }
+});
+
+app.put('/api/reposicoes/:id', async (req, res) => {
+  const { medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos } = req.body;
+  if (!medico_id || !sala_id || !data || !turno || !motivo) {
+    return res.status(400).json({ erro: 'medico_id, sala_id, data, turno e motivo são obrigatórios' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `UPDATE reposicoes SET medico_id=$1, sala_id=$2, data=$3, turno=$4, motivo=$5, observacao=$6, pacientes_atendidos=$7
+       WHERE id=$8 RETURNING *`,
+      [medico_id, sala_id, data, turno, motivo, observacao || null, pacientes_atendidos || null, req.params.id]
+    );
+    res.json(rows[0]);
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao editar reposição' });
   }
 });
 

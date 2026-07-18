@@ -65,4 +65,8 @@ CREATE TABLE IF NOT EXISTS reposicoes (
   observacao TEXT
 );
 
+-- Quando o número de pacientes daquele dia específico foi diferente do
+-- padrão do médico (ex: atendeu mais gente que o normal nessa reposição)
+ALTER TABLE reposicoes ADD COLUMN IF NOT EXISTS pacientes_atendidos INTEGER;
+
 CREATE INDEX IF NOT EXISTS idx_reposicoes_data ON reposicoes(data);
