@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
 const ExcelJS = require('exceljs');
+const { PNG } = require('pngjs');
 require('dotenv').config();
 
 const app = express();
@@ -458,6 +459,60 @@ app.delete('/api/snapshots/:mes', async (req, res) => {
   }
 });
 
+// Desenha um gráfico de linha simples num bitmap (sem depender de nenhuma
+// biblioteca nativa de canvas — só matemática de pixel, puro JavaScript).
+function gerarGraficoLinhaPNG(valores, largura = 640, altura = 300) {
+  const png = new PNG({ width: largura, height: altura });
+  const margem = { topo: 20, baixo: 30, esquerda: 10, direita: 20 };
+  const areaLargura = largura - margem.esquerda - margem.direita;
+  const areaAltura = altura - margem.topo - margem.baixo;
+
+  for (let i = 0; i < png.data.length; i += 4) {
+    png.data[i] = 255; png.data[i + 1] = 255; png.data[i + 2] = 255; png.data[i + 3] = 255;
+  }
+
+  function setPixel(x, y, r, g, b) {
+    x = Math.round(x); y = Math.round(y);
+    if (x < 0 || x >= largura || y < 0 || y >= altura) return;
+    const idx = (largura * y + x) << 2;
+    png.data[idx] = r; png.data[idx + 1] = g; png.data[idx + 2] = b; png.data[idx + 3] = 255;
+  }
+
+  function linha(x0, y0, x1, y1, r, g, b, espessura = 2) {
+    const dx = x1 - x0, dy = y1 - y0;
+    const passos = Math.max(Math.abs(dx), Math.abs(dy), 1);
+    for (let i = 0; i <= passos; i++) {
+      const x = x0 + (dx * i) / passos;
+      const y = y0 + (dy * i) / passos;
+      for (let ox = -espessura; ox <= espessura; ox++) {
+        for (let oy = -espessura; oy <= espessura; oy++) {
+          if (ox * ox + oy * oy <= espessura * espessura) setPixel(x + ox, y + oy, r, g, b);
+        }
+      }
+    }
+  }
+
+  for (let f = 0; f <= 4; f++) {
+    const y = margem.topo + areaAltura - (f / 4) * areaAltura;
+    linha(margem.esquerda, y, largura - margem.direita, y, 231, 235, 233, 0);
+  }
+  linha(margem.esquerda, margem.topo, margem.esquerda, altura - margem.baixo, 216, 222, 219, 1);
+  linha(margem.esquerda, altura - margem.baixo, largura - margem.direita, altura - margem.baixo, 216, 222, 219, 1);
+
+  if (valores.length > 0) {
+    const pontos = valores.map((v, i) => ({
+      x: margem.esquerda + (valores.length === 1 ? areaLargura / 2 : (i / (valores.length - 1)) * areaLargura),
+      y: margem.topo + areaAltura - v * areaAltura
+    }));
+    for (let i = 0; i < pontos.length - 1; i++) {
+      linha(pontos[i].x, pontos[i].y, pontos[i + 1].x, pontos[i + 1].y, 0, 105, 62, 3);
+    }
+    pontos.forEach(p => linha(p.x, p.y, p.x, p.y, 0, 105, 62, 5));
+  }
+
+  return PNG.sync.write(png);
+}
+
 // ---------- EXPORTAR RELATÓRIO (com "gráfico" via barras de dados do Excel) ----------
 const NOMES_MESES_EXPORT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function nomeMesExport(mesISO) {
@@ -478,38 +533,75 @@ app.get('/api/exportar-relatorio', async (req, res) => {
     // ---- Aba 1: Evolução mensal (uma linha por mês, com barra de % nativa) ----
     const wsEvolucao = workbook.addWorksheet('Evolução Mensal');
     wsEvolucao.columns = [
-      { header: 'Mês', width: 24 },
+      { header: 'Mês', width: 22 },
       { header: 'Capacidade Instalada', width: 20 },
-      { header: 'Capacidade Atual', width: 20 },
-      { header: '% Ocupação', width: 16 }
+      { header: 'Capacidade Atual', width: 18 },
+      { header: 'Capacidade Livre', width: 18 },
+      { header: '% Ocupação', width: 14 },
+      { header: '', width: 3 },
+      { header: 'Ocupados', width: 16 },
+      { header: 'Livres', width: 16 }
     ];
     wsEvolucao.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
     wsEvolucao.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+    wsEvolucao.getCell('F1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
 
     const meses = [...new Set(rows.map(r => r.mes))].sort();
+    const percentuaisParaGrafico = [];
+
     meses.forEach((mes, i) => {
       const doMes = rows.filter(r => r.mes === mes);
       const totalInstalada = doMes.reduce((s, r) => s + r.instalada, 0);
       const totalAtual = doMes.reduce((s, r) => s + r.atual, 0);
+      const totalLivre = totalInstalada - totalAtual;
       const percentual = totalInstalada > 0 ? totalAtual / totalInstalada : 0;
+      percentuaisParaGrafico.push(percentual);
+
       const linha = i + 2;
       wsEvolucao.getCell(`A${linha}`).value = nomeMesExport(mes);
       wsEvolucao.getCell(`B${linha}`).value = totalInstalada;
       wsEvolucao.getCell(`C${linha}`).value = totalAtual;
-      const celPct = wsEvolucao.getCell(`D${linha}`);
+      wsEvolucao.getCell(`D${linha}`).value = totalLivre;
+      const celPct = wsEvolucao.getCell(`E${linha}`);
       celPct.value = percentual;
       celPct.numFmt = '0.0%';
+
+      // Caixinhas coloridas Ocupados (verde) / Livres (laranja), como na
+      // planilha original
+      const celOcupados = wsEvolucao.getCell(`G${linha}`);
+      celOcupados.value = `Ocupados ${(percentual * 100).toFixed(0)}%`;
+      celOcupados.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      celOcupados.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+      celOcupados.alignment = { horizontal: 'center' };
+
+      const celLivres = wsEvolucao.getCell(`H${linha}`);
+      celLivres.value = `Livres ${((1 - percentual) * 100).toFixed(0)}%`;
+      celLivres.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      celLivres.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9822B' } };
+      celLivres.alignment = { horizontal: 'center' };
     });
 
     if (meses.length > 0) {
       wsEvolucao.addConditionalFormatting({
-        ref: `D2:D${meses.length + 1}`,
+        ref: `E2:E${meses.length + 1}`,
         rules: [{
           type: 'dataBar', minLength: 0, maxLength: 100,
           color: { argb: VERDE_UNIMED },
           cfvo: [{ type: 'min' }, { type: 'max' }],
           priority: 1
         }]
+      });
+
+      // Gráfico de linha de verdade (imagem gerada em JS), colocado à
+      // direita das tabelas
+      const bufferGrafico = gerarGraficoLinhaPNG(percentuaisParaGrafico);
+      const imgId = workbook.addImage({ buffer: bufferGrafico, extension: 'png' });
+      const primeiraLinhaGrafico = meses.length + 4;
+      wsEvolucao.getCell(`A${primeiraLinhaGrafico}`).value = 'Evolução da % de Ocupação';
+      wsEvolucao.getCell(`A${primeiraLinhaGrafico}`).font = { bold: true };
+      wsEvolucao.addImage(imgId, {
+        tl: { col: 0, row: primeiraLinhaGrafico },
+        ext: { width: 640, height: 300 }
       });
     }
 
