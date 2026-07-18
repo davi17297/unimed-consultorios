@@ -177,12 +177,16 @@ function renderizarGrade() {
       <h3 style="margin-bottom:2px">${sala.nome}</h3>
       <p style="font-size:12px;color:var(--ink-400);margin:0 0 12px">Aceita: ${nomesEspSala}</p>
       <div class="resumo-grade">
-        <span>Ocupados: <strong>${calc.ocupados}/${TOTAL_ENCAIXES}</strong></span>
-        <span>Livres: <strong>${calc.livres}/${TOTAL_ENCAIXES}</strong></span>
-        <span>Instalada: <strong>${calc.instalada}</strong></span>
-        <span>Atual: <strong>${calc.atual}</strong></span>
-        <span>Livre: <strong>${calc.livre}</strong></span>
-        <span>% Ocupação: <strong style="color:${c.cor}">${pct(calc.percentual)}</strong></span>
+        <div class="item"><span class="valor">${calc.ocupados}/${TOTAL_ENCAIXES}</span><span class="rotulo">Ocupados</span></div>
+        <div class="item"><span class="valor">${calc.livres}/${TOTAL_ENCAIXES}</span><span class="rotulo">Livres</span></div>
+        <div class="item"><span class="valor">${calc.instalada}</span><span class="rotulo">Instalada (mês)</span></div>
+        <div class="item"><span class="valor">${calc.atual}</span><span class="rotulo">Atual (mês)</span></div>
+        <div class="item"><span class="valor">${calc.livre}</span><span class="rotulo">Livre (mês)</span></div>
+        <div class="item"><span class="valor" style="color:${c.cor}">${pct(calc.percentual)}</span><span class="rotulo">% Ocupação</span></div>
+      </div>
+      <div class="legenda-grade">
+        <span class="item"><span class="amostra livre"></span> Livre</span>
+        <span class="item"><span class="amostra ocupado"></span> Ocupado</span>
       </div>
       <table class="grade">
         <thead><tr><th>Dia ↓</th><th>08h às 12h</th><th>12h às 16h</th><th>16h às 20h</th></tr></thead>
