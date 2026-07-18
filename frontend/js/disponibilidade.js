@@ -134,8 +134,14 @@ function renderizarGrade() {
   const c = corPorOcupacao(calc.percentual);
 
   const restricoes = sala.especialidades_permitidas || [];
-  const medicosPermitidosBase = restricoes.length > 0
+  const medicosFiltradosPorEspecialidade = restricoes.length > 0
     ? dados.medicos.filter(m => restricoes.includes(m.especialidade_id))
+    : dados.medicos;
+  // Trava de segurança: se o filtro não achar NENHUM médico (ex: os médicos
+  // importados ainda não têm especialidade cadastrada), mostra todos em vez
+  // de deixar o dropdown vazio e sem saída.
+  const medicosPermitidosBase = medicosFiltradosPorEspecialidade.length > 0
+    ? medicosFiltradosPorEspecialidade
     : dados.medicos;
 
   const nomesEspSala = restricoes.length > 0
