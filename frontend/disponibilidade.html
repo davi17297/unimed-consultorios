@@ -51,9 +51,24 @@
       <section id="pagina-disponibilidade">
         <div class="cabecalho"><h1>Disponibilidade</h1><p>Grade semanal por consultório</p></div>
         <div class="card card-pad" style="margin-bottom:14px">
-          <label style="font-size:13px;color:var(--ink-600)">Consultório: </label>
-          <select id="seletor-sala"></select>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
+            <div>
+              <label style="display:block;font-size:12px;color:var(--ink-400);margin-bottom:4px">Andar / Local</label>
+              <select id="seletor-local"><option value="">Todos os locais</option></select>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--ink-400);margin-bottom:4px">Consultório</label>
+              <select id="seletor-sala"></select>
+            </div>
+            <div style="flex:1;min-width:220px">
+              <label style="display:block;font-size:12px;color:var(--ink-400);margin-bottom:4px">Buscar médico</label>
+              <input type="text" id="busca-medico-disponibilidade" list="lista-medicos-disponibilidade"
+                     placeholder="Nome do médico..." style="width:100%">
+              <datalist id="lista-medicos-disponibilidade"></datalist>
+            </div>
+          </div>
         </div>
+        <div id="area-agenda-medico" class="oculto"></div>
         <div id="area-grade"></div>
       </section>
     </main>

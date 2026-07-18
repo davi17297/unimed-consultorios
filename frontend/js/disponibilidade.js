@@ -1,21 +1,40 @@
 // ============================================================
 // disponibilidade.js — grade semanal (estilo planilha) de um
-// consultório por vez. Depende de dados.js.
+// consultório por vez, com filtro de local/andar e busca por médico.
+// Depende de dados.js.
 // ============================================================
 
+// Preenche o dropdown de Andar/Local com os locais que existem nos
+// consultórios cadastrados (vem do campo "localizacao" de cada sala).
+function carregarSeletorLocal() {
+  const dados = banco.ler();
+  const locais = [...new Set(dados.salas.map(s => s.localizacao).filter(Boolean))].sort();
+  const seletor = document.getElementById('seletor-local');
+  const valorAtual = seletor.value;
+  seletor.innerHTML = '<option value="">Todos os locais</option>' +
+    locais.map(l => `<option value="${l}">${l}</option>`).join('');
+  if (valorAtual && locais.includes(valorAtual)) seletor.value = valorAtual;
+}
+
+// O seletor de Consultório respeita o filtro de local escolhido acima.
 function carregarSeletorSala() {
   const dados = banco.ler();
+  const localFiltro = document.getElementById('seletor-local').value;
   const seletor = document.getElementById('seletor-sala');
   const valorAtual = seletor.value;
 
-  if (dados.salas.length === 0) {
-    seletor.innerHTML = '<option value="">Cadastre um consultório primeiro</option>';
+  const salasFiltradas = localFiltro
+    ? dados.salas.filter(s => s.localizacao === localFiltro)
+    : dados.salas;
+
+  if (salasFiltradas.length === 0) {
+    seletor.innerHTML = '<option value="">Nenhum consultório nesse local</option>';
     return;
   }
 
   // Agrupa por Sala de Espera (mesma lógica usada na tela de Consultórios)
   const grupos = new Map();
-  dados.salas.forEach(s => {
+  salasFiltradas.forEach(s => {
     const grupo = obterGrupoSalaEspera(s);
     if (!grupos.has(grupo)) grupos.set(grupo, []);
     grupos.get(grupo).push(s);
@@ -32,9 +51,73 @@ function carregarSeletorSala() {
   });
 
   seletor.innerHTML = html;
-  if (valorAtual && dados.salas.some(s => String(s.id) === valorAtual)) {
+  if (valorAtual && salasFiltradas.some(s => String(s.id) === valorAtual)) {
     seletor.value = valorAtual;
+  } else {
+    seletor.value = salasFiltradas[0].id;
   }
+}
+
+// Preenche a lista de sugestões (datalist) com os nomes dos médicos
+function carregarListaMedicosBusca() {
+  const dados = banco.ler();
+  document.getElementById('lista-medicos-disponibilidade').innerHTML =
+    dados.medicos.map(m => `<option value="${formatarNomeMedico(m)}">`).join('');
+}
+
+// Ao digitar/escolher um médico, mostra a agenda dele (onde e quando
+// atende), procurando em TODOS os consultórios, não só o filtrado.
+function buscarAgendaMedico() {
+  const dados = banco.ler();
+  const termo = document.getElementById('busca-medico-disponibilidade').value.trim().toLowerCase();
+  const area = document.getElementById('area-agenda-medico');
+
+  if (!termo) {
+    area.classList.add('oculto');
+    area.innerHTML = '';
+    return;
+  }
+
+  const medico = dados.medicos.find(m => formatarNomeMedico(m).toLowerCase() === termo)
+    || dados.medicos.find(m => formatarNomeMedico(m).toLowerCase().includes(termo));
+
+  area.classList.remove('oculto');
+  if (!medico) {
+    area.innerHTML = `<div class="card card-pad vazio">Nenhum médico encontrado com esse nome.</div>`;
+    return;
+  }
+
+  const ocorrencias = [];
+  Object.keys(dados.escala).forEach(chave => {
+    const celula = dados.escala[chave];
+    if (String(celula.medico_id) !== String(medico.id)) return;
+    const [salaId, dia, turno] = chave.split('|');
+    const sala = dados.salas.find(s => String(s.id) === salaId);
+    if (sala) ocorrencias.push({ sala, dia, turno, obs: celula.obs || '' });
+  });
+  ocorrencias.sort((a, b) => DIAS.indexOf(a.dia) - DIAS.indexOf(b.dia));
+
+  area.innerHTML = `
+    <div class="card card-pad">
+      <h3>Agenda de ${formatarNomeMedico(medico)}</h3>
+      ${ocorrencias.length > 0 ? `
+        <table>
+          <thead><tr><th>Consultório</th><th>Local</th><th>Dia</th><th>Turno</th><th>Obs.</th></tr></thead>
+          <tbody>
+            ${ocorrencias.map(o => `
+              <tr>
+                <td>${o.sala.nome}</td>
+                <td>${o.sala.localizacao || ''}</td>
+                <td>${o.dia}</td>
+                <td>${o.turno}</td>
+                <td>${o.obs}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : `<p class="vazio">Esse médico não está escalado em nenhum horário ainda.</p>`}
+    </div>
+  `;
 }
 
 function renderizarGrade() {
@@ -131,7 +214,9 @@ async function atualizarCelula(chave, medicoId, obs) {
 }
 
 function carregarPaginaDisponibilidade() {
+  carregarSeletorLocal();
   carregarSeletorSala();
+  carregarListaMedicosBusca();
   renderizarGrade();
 }
 
@@ -139,7 +224,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     await carregarDados();
     carregarPaginaDisponibilidade();
+    document.getElementById('seletor-local').addEventListener('change', () => {
+      carregarSeletorSala();
+      renderizarGrade();
+    });
     document.getElementById('seletor-sala').addEventListener('change', renderizarGrade);
+    document.getElementById('busca-medico-disponibilidade').addEventListener('input', buscarAgendaMedico);
   } catch (erro) {
     console.error('Erro ao carregar a Disponibilidade:', erro);
     document.getElementById('area-grade').innerHTML =
