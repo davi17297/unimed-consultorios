@@ -407,6 +407,57 @@ app.get('/api/exportar-planilha', async (req, res) => {
   }
 });
 
+// ---------- RELATÓRIOS (snapshots mensais) ----------
+// O frontend calcula a ocupação atual (mesma conta que já usa no
+// Dashboard) e manda pra cá salvar como o "retrato" daquele mês.
+app.post('/api/snapshots', async (req, res) => {
+  const { mes, itens } = req.body;
+  if (!mes || !Array.isArray(itens)) {
+    return res.status(400).json({ erro: 'mes e itens são obrigatórios' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const item of itens) {
+      await client.query(
+        `INSERT INTO snapshots_mensais (mes, sala_id, sala_nome, instalada, atual, livre, percentual)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (mes, sala_id)
+         DO UPDATE SET sala_nome=$3, instalada=$4, atual=$5, livre=$6, percentual=$7, criado_em=now()`,
+        [mes, item.sala_id, item.sala_nome, item.instalada, item.atual, item.livre, item.percentual]
+      );
+    }
+    await client.query('COMMIT');
+    res.status(201).json({ ok: true, mes, quantidade: itens.length });
+  } catch (erro) {
+    await client.query('ROLLBACK');
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao salvar snapshot' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/snapshots', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM snapshots_mensais ORDER BY mes ASC, sala_nome ASC');
+    res.json(rows);
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao carregar snapshots' });
+  }
+});
+
+app.delete('/api/snapshots/:mes', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM snapshots_mensais WHERE mes=$1', [req.params.mes]);
+    res.status(204).end();
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao excluir snapshot' });
+  }
+});
+
 // ---------- Rota de teste (útil pra conferir que o backend está no ar) ----------
 app.get('/api/status', (req, res) => {
   res.json({ ok: true, mensagem: 'Backend da Unimed Consultórios rodando.' });

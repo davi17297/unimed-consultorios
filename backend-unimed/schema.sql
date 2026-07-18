@@ -70,3 +70,21 @@ CREATE TABLE IF NOT EXISTS reposicoes (
 ALTER TABLE reposicoes ADD COLUMN IF NOT EXISTS pacientes_atendidos INTEGER;
 
 CREATE INDEX IF NOT EXISTS idx_reposicoes_data ON reposicoes(data);
+
+-- "Foto" mensal da ocupação de cada consultório, tirada manualmente
+-- (botão "Salvar snapshot do mês" na tela de Relatórios). É isso que
+-- alimenta o histórico/gráfico de evolução mês a mês.
+CREATE TABLE IF NOT EXISTS snapshots_mensais (
+  id SERIAL PRIMARY KEY,
+  mes TEXT NOT NULL, -- formato 'AAAA-MM'
+  sala_id INTEGER REFERENCES salas(id) ON DELETE SET NULL,
+  sala_nome TEXT NOT NULL, -- guardado separado, pra não perder o histórico se a sala for excluída depois
+  instalada INTEGER NOT NULL,
+  atual INTEGER NOT NULL,
+  livre INTEGER NOT NULL,
+  percentual NUMERIC NOT NULL,
+  criado_em TIMESTAMP DEFAULT now(),
+  UNIQUE (mes, sala_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_snapshots_mes ON snapshots_mensais(mes);

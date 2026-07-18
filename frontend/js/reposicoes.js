@@ -163,11 +163,6 @@ async function excluirReposicao(id) {
   }
 }
 
-function mesAtualISO() {
-  const agora = new Date();
-  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
-}
-
 function carregarResumoEtabela() {
   const dados = banco.ler();
   const mesFiltro = document.getElementById('filtro-mes-reposicao').value || mesAtualISO();

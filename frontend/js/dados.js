@@ -72,6 +72,24 @@ function formatarDataBR(dataISO) {
   return `${dia}/${mes}/${ano}`;
 }
 
+function mesAtualISO() {
+  const agora = new Date();
+  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
+}
+
+const NOMES_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const NOMES_MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function nomeMesPtBr(mesISO) {
+  const [ano, mes] = mesISO.split('-').map(Number);
+  return `${NOMES_MESES[mes - 1]} de ${ano}`;
+}
+
+function mesAbreviado(mesISO) {
+  const [ano, mes] = mesISO.split('-').map(Number);
+  return `${NOMES_MESES_ABREV[mes - 1]}/${String(ano).slice(2)}`;
+}
+
 // Turnos livres de uma sala num dia qualquer da semana (não só hoje)
 function turnosLivresNoDia(dados, sala, dia) {
   return turnosDoDia(dia).filter(turno => {
@@ -141,7 +159,10 @@ const api = {
     chamarApi('/api/reposicoes', 'POST', { medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos }),
   editarReposicao: (id, medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos) =>
     chamarApi(`/api/reposicoes/${id}`, 'PUT', { medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos }),
-  excluirReposicao: (id) => chamarApi(`/api/reposicoes/${id}`, 'DELETE')
+  excluirReposicao: (id) => chamarApi(`/api/reposicoes/${id}`, 'DELETE'),
+  salvarSnapshot: (mes, itens) => chamarApi('/api/snapshots', 'POST', { mes, itens }),
+  buscarSnapshots: () => chamarApi('/api/snapshots', 'GET'),
+  excluirSnapshot: (mes) => chamarApi(`/api/snapshots/${mes}`, 'DELETE')
 };
 
 const pct = (v) => (v * 100).toFixed(1) + '%';
