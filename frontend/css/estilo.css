@@ -206,6 +206,8 @@
 
   /* Lista com altura máxima e rolagem interna (ex: Especialidades, Médicos) */
   .lista-rolavel { max-height: 320px; overflow-y: auto; }
+  .lista-rolavel-alta { max-height: 480px; }
+  .lista-rolavel thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
 
   /* Seletor de especialidades permitidas (checkboxes) no cadastro de consultório */
   .picker-especialidades {
