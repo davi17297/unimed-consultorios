@@ -139,6 +139,7 @@ function renderizarResumoReposicoesPorMes() {
 
 function carregarPaginaRelatorios() {
   document.getElementById('nome-mes-atual').textContent = nomeMesPtBr(mesAtualISO());
+  document.getElementById('link-exportar-relatorio').href = `${API_BASE_URL}/api/exportar-relatorio`;
   renderizarGraficoEvolucao();
   renderizarSeletorMesDetalhe();
   renderizarResumoReposicoesPorMes();

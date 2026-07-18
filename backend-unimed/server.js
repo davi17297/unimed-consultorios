@@ -458,6 +458,109 @@ app.delete('/api/snapshots/:mes', async (req, res) => {
   }
 });
 
+// ---------- EXPORTAR RELATÓRIO (com "gráfico" via barras de dados do Excel) ----------
+const NOMES_MESES_EXPORT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function nomeMesExport(mesISO) {
+  const [ano, mes] = mesISO.split('-').map(Number);
+  return `${NOMES_MESES_EXPORT[mes - 1]} de ${ano}`;
+}
+
+app.get('/api/exportar-relatorio', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM snapshots_mensais ORDER BY mes ASC, sala_nome ASC'
+    );
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'Sistema Unimed Goiânia';
+    workbook.created = new Date();
+
+    // ---- Aba 1: Evolução mensal (uma linha por mês, com barra de % nativa) ----
+    const wsEvolucao = workbook.addWorksheet('Evolução Mensal');
+    wsEvolucao.columns = [
+      { header: 'Mês', width: 24 },
+      { header: 'Capacidade Instalada', width: 20 },
+      { header: 'Capacidade Atual', width: 20 },
+      { header: '% Ocupação', width: 16 }
+    ];
+    wsEvolucao.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    wsEvolucao.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+
+    const meses = [...new Set(rows.map(r => r.mes))].sort();
+    meses.forEach((mes, i) => {
+      const doMes = rows.filter(r => r.mes === mes);
+      const totalInstalada = doMes.reduce((s, r) => s + r.instalada, 0);
+      const totalAtual = doMes.reduce((s, r) => s + r.atual, 0);
+      const percentual = totalInstalada > 0 ? totalAtual / totalInstalada : 0;
+      const linha = i + 2;
+      wsEvolucao.getCell(`A${linha}`).value = nomeMesExport(mes);
+      wsEvolucao.getCell(`B${linha}`).value = totalInstalada;
+      wsEvolucao.getCell(`C${linha}`).value = totalAtual;
+      const celPct = wsEvolucao.getCell(`D${linha}`);
+      celPct.value = percentual;
+      celPct.numFmt = '0.0%';
+    });
+
+    if (meses.length > 0) {
+      wsEvolucao.addConditionalFormatting({
+        ref: `D2:D${meses.length + 1}`,
+        rules: [{
+          type: 'dataBar', minLength: 0, maxLength: 100,
+          color: { argb: VERDE_UNIMED },
+          cfvo: [{ type: 'min' }, { type: 'max' }],
+          priority: 1
+        }]
+      });
+    }
+
+    // ---- Aba 2: Detalhe por consultório em cada mês ----
+    const wsDetalhe = workbook.addWorksheet('Detalhe por Consultório');
+    wsDetalhe.columns = [
+      { header: 'Mês', width: 20 },
+      { header: 'Consultório', width: 34 },
+      { header: 'Instalada', width: 14 },
+      { header: 'Atual', width: 14 },
+      { header: 'Livre', width: 14 },
+      { header: '% Ocupação', width: 16 }
+    ];
+    wsDetalhe.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    wsDetalhe.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+
+    rows.forEach((r, i) => {
+      const linha = i + 2;
+      wsDetalhe.getCell(`A${linha}`).value = nomeMesExport(r.mes);
+      wsDetalhe.getCell(`B${linha}`).value = r.sala_nome;
+      wsDetalhe.getCell(`C${linha}`).value = r.instalada;
+      wsDetalhe.getCell(`D${linha}`).value = r.atual;
+      wsDetalhe.getCell(`E${linha}`).value = r.livre;
+      const celPct = wsDetalhe.getCell(`F${linha}`);
+      celPct.value = Number(r.percentual);
+      celPct.numFmt = '0.0%';
+    });
+
+    if (rows.length > 0) {
+      wsDetalhe.addConditionalFormatting({
+        ref: `F2:F${rows.length + 1}`,
+        rules: [{
+          type: 'dataBar', minLength: 0, maxLength: 100,
+          color: { argb: VERDE_UNIMED },
+          cfvo: [{ type: 'min' }, { type: 'max' }],
+          priority: 1
+        }]
+      });
+    }
+
+    const nomeArquivo = `relatorio-ocupacao-unimed-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao gerar o relatório' });
+  }
+});
+
 // ---------- Rota de teste (útil pra conferir que o backend está no ar) ----------
 app.get('/api/status', (req, res) => {
   res.json({ ok: true, mensagem: 'Backend da Unimed Consultórios rodando.' });
