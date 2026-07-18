@@ -155,14 +155,54 @@ function selecionarDiaPainel(dia) {
   carregarDashboard();
 }
 
+// Miniatura do gráfico de evolução mensal (o mesmo do Relatórios). Busca os
+// snapshots à parte, já que eles não fazem parte do cache principal.
+async function atualizarGraficoEvolucaoMensal() {
+  const grafico = document.getElementById('grafico-evolucao-mensal');
+  const aviso = document.getElementById('aviso-sem-historico-dashboard');
+  try {
+    const snapshots = await api.buscarSnapshots();
+    const meses = [...new Set(snapshots.map(s => s.mes))].sort();
+
+    if (meses.length === 0) {
+      grafico.innerHTML = '';
+      aviso.classList.remove('oculto');
+      return;
+    }
+    aviso.classList.add('oculto');
+
+    const mesAtual = mesAtualISO();
+    grafico.innerHTML = meses.map(mes => {
+      const doMes = snapshots.filter(s => s.mes === mes);
+      const totalInstalada = doMes.reduce((soma, s) => soma + s.instalada, 0);
+      const totalAtual = doMes.reduce((soma, s) => soma + s.atual, 0);
+      const percentual = totalInstalada > 0 ? totalAtual / totalInstalada : 0;
+      const alturaPct = Math.max(4, Math.round(percentual * 100));
+      return `
+        <div class="barra-col ${mes === mesAtual ? 'selecionado' : ''}" title="${nomeMesPtBr(mes)}: ${pct(percentual)}">
+          <div class="numero">${pct(percentual)}</div>
+          <div class="haste" style="height:${alturaPct}%"></div>
+          <div class="rotulo-dia">${mesAbreviado(mes)}</div>
+        </div>
+      `;
+    }).join('');
+  } catch (erro) {
+    console.error('Erro ao carregar evolução mensal:', erro);
+  }
+}
+
 // window.atualizarPagina é chamado pelo botão "Atualizar" do topo (via
 // layout.js), DEPOIS que ele já buscou os dados novos — aqui é só re-render.
-window.atualizarPagina = carregarDashboard;
+window.atualizarPagina = () => {
+  carregarDashboard();
+  atualizarGraficoEvolucaoMensal();
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     await carregarDados();
     carregarDashboard();
+    atualizarGraficoEvolucaoMensal();
   } catch (erro) {
     console.error('Erro ao carregar o Dashboard:', erro);
     document.getElementById('grafico-barras').innerHTML = '';
