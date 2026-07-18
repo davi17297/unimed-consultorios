@@ -64,8 +64,11 @@ function turnosLivresNoDia(dados, sala, dia) {
 }
 
 function estadoInicial() {
-  return { especialidades: [], medicos: [], salas: [], escala: {} };
+  return { especialidades: [], medicos: [], salas: [], escala: {}, reposicoes: [] };
 }
+
+// Motivos fixos de reposição, pra facilitar contar depois quantas foram de cada tipo
+const MOTIVOS_REPOSICAO = ['Falta', 'Troca de plantão', 'Feriado', 'Outro'];
 
 // ---------- Cache local dos dados vindos da API ----------
 // As telas leem daqui (síncrono). Quem preenche esse cache é o
@@ -116,7 +119,10 @@ const api = {
   criarSala: (dadosSala) => chamarApi('/api/salas', 'POST', dadosSala),
   excluirSala: (id) => chamarApi(`/api/salas/${id}`, 'DELETE'),
   atualizarCelula: (sala_id, dia_semana, turno, medico_id, obs) =>
-    chamarApi('/api/escala', 'PUT', { sala_id, dia_semana, turno, medico_id, obs })
+    chamarApi('/api/escala', 'PUT', { sala_id, dia_semana, turno, medico_id, obs }),
+  criarReposicao: (medico_id, sala_id, data, turno, motivo, observacao) =>
+    chamarApi('/api/reposicoes', 'POST', { medico_id, sala_id, data, turno, motivo, observacao }),
+  excluirReposicao: (id) => chamarApi(`/api/reposicoes/${id}`, 'DELETE')
 };
 
 const pct = (v) => (v * 100).toFixed(1) + '%';
@@ -126,6 +132,13 @@ function corPorOcupacao(percentual) {
   if (percentual >= 0.85) return { cor: 'var(--red-600)', pill: 'pill-vermelho', ponto: 'ponto-vermelho' };
   if (percentual >= 0.6) return { cor: 'var(--amber-600)', pill: 'pill-ambar', ponto: 'ponto-ambar' };
   return { cor: 'var(--green-600)', pill: 'pill-verde', ponto: 'ponto-verde' };
+}
+
+// Quantos pacientes esse médico atende por turno — usa o número dele se
+// tiver cadastrado, senão cai no padrão do consultório.
+function capacidadeDoMedico(medico, sala) {
+  const vagasPadrao = Number(sala && sala.capacidade_por_turno) || 16;
+  return (medico && medico.pacientes_por_turno) ? Number(medico.pacientes_por_turno) : vagasPadrao;
 }
 
 // ---------- CÁLCULO POR SALA ----------

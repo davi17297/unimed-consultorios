@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reposições — Unimed Goiânia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <div class="texto">Unimed Goiânia</div>
+        <div class="sub">Consultórios · CEU</div>
+      </div>
+    </div>
+    <nav>
+      <div class="grupo-label">Visão geral</div>
+      <a class="nav-link" href="dashboard.html"><span class="ic">◧</span> Dashboard</a>
+      <a class="nav-link" href="disponibilidade.html"><span class="ic">▤</span> Disponibilidade</a>
+      <div class="grupo-label">Cadastros</div>
+      <a class="nav-link" href="consultorios.html"><span class="ic">▢</span> Consultórios</a>
+      <a class="nav-link" href="profissionais.html"><span class="ic">☺</span> Profissionais</a>
+      <div class="grupo-label">Gestão</div>
+      <a class="nav-link active" href="reposicoes.html"><span class="ic">↻</span> Reposições</a>
+      <a class="nav-link" href="relatorios.html"><span class="ic">▲</span> Relatórios</a>
+      <a class="nav-link" href="importar.html"><span class="ic">⇩</span> Importar Excel</a>
+      <a class="nav-link" href="config.html"><span class="ic">⚙</span> Configurações</a>
+    </nav>
+  </aside>
+
+  <div class="principal">
+    <div class="topbar">
+      <span class="titulo">Coordenação de Consultórios</span>
+      <span class="data" id="data-hoje"></span>
+      <select id="seletor-mes">
+        <option>Junho</option><option>Julho</option><option>Agosto</option>
+      </select>
+      <div class="acoes">
+        <span class="data" id="hora-atualizacao"></span>
+        <button class="btn btn-primario" onclick="atualizarTudo()">Atualizar</button>
+      </div>
+    </div>
+
+    <main>
+      <section id="pagina-reposicoes">
+        <div class="cabecalho">
+          <h1>Reposições</h1>
+          <p>Registro de plantões repostos em datas específicas (fora da escala fixa semanal)</p>
+        </div>
+
+        <div class="card card-pad">
+          <h3>Nova reposição</h3>
+          <form class="inline" id="form-reposicao">
+            <select name="medico_id" id="campo-medico" required><option value="">Médico...</option></select>
+            <input name="data" id="campo-data" type="date" required>
+            <select name="turno" id="campo-turno" required>
+              <option value="">Turno...</option>
+              <option value="08h às 12h">08h às 12h</option>
+              <option value="12h às 16h">12h às 16h</option>
+              <option value="16h às 20h">16h às 20h</option>
+            </select>
+            <select name="sala_id" id="campo-sala" required><option value="">Escolha data e turno primeiro...</option></select>
+            <select name="motivo" id="campo-motivo" required>
+              <option value="">Motivo...</option>
+            </select>
+            <input name="observacao" placeholder="Observação (opcional)" style="min-width:180px">
+            <button class="btn btn-primario" type="submit">Registrar</button>
+          </form>
+          <p id="aviso-consultorios-vagos" style="font-size:12px;color:var(--ink-400);margin-top:4px"></p>
+        </div>
+
+        <div class="card card-pad">
+          <h3>Resumo do mês</h3>
+          <label style="font-size:12px;color:var(--ink-400)">Mês: </label>
+          <input type="month" id="filtro-mes-reposicao" style="margin-bottom:14px">
+          <div class="stats-row" id="resumo-reposicoes-mes"></div>
+          <div class="linha-meio" style="grid-template-columns: 1fr 1fr; margin-top:14px">
+            <div class="card card-pad">
+              <h3>Por motivo</h3>
+              <div id="resumo-por-motivo"></div>
+            </div>
+            <div class="card card-pad">
+              <h3>Por médico</h3>
+              <div id="resumo-por-medico"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card tabela-card">
+          <div class="cab-tabela"><h3>Reposições do mês</h3></div>
+          <table>
+            <thead><tr><th>Data</th><th>Médico</th><th>Consultório</th><th>Turno</th><th>Motivo</th><th>Pacientes</th><th>Obs.</th><th></th></tr></thead>
+            <tbody id="tabela-reposicoes"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="js/dados.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/reposicoes.js"></script>
+</body>
+</html>
