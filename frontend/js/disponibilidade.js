@@ -154,6 +154,7 @@ function renderizarGrade() {
       if (!turnos.includes(turno)) return `<td class="vazia">—</td>`;
       const chave = chaveCelula(sala.id, dia, turno);
       const celula = dados.escala[chave] || { medico_id: '', obs: '' };
+      const ocupada = !!celula.medico_id;
 
       let medicosPermitidos = medicosPermitidosBase;
       if (celula.medico_id && !medicosPermitidos.some(m => String(m.id) === String(celula.medico_id))) {
@@ -164,14 +165,26 @@ function renderizarGrade() {
       const opcoesMedicos = medicosPermitidos.map(m =>
         `<option value="${m.id}" ${String(celula.medico_id) === String(m.id) ? 'selected' : ''}>${formatarNomeMedico(m)}</option>`
       ).join('');
+
+      // Reposições futuras que caem nesse mesmo consultório/dia da semana/turno —
+      // avisa pra não rolar de escalar alguém fixo em cima de uma reposição já marcada.
+      const hojeISO = new Date().toISOString().slice(0, 10);
+      const reposicoesDaCelula = (dados.reposicoes || []).filter(r =>
+        r.sala_id === sala.id && r.turno === turno && r.data >= hojeISO && diaDaSemanaDeData(r.data) === dia
+      );
+      const avisoReposicao = reposicoesDaCelula.length > 0
+        ? `<div class="aviso-reposicao">⚠ Reposição ${formatarDataBR(reposicoesDaCelula[0].data)}: ${formatarNomeMedico(dados.medicos.find(m => m.id === reposicoesDaCelula[0].medico_id))}</div>`
+        : '';
+
       return `
-        <td>
+        <td class="${ocupada ? 'celula-ocupada' : 'celula-livre'}">
           <select onchange="atualizarCelula('${chave}', this.value, null)">
             <option value="">— livre —</option>
             ${opcoesMedicos}
           </select>
           <input class="obs" placeholder="horário/obs" value="${celula.obs || ''}"
                  onchange="atualizarCelula('${chave}', null, this.value)">
+          ${avisoReposicao}
         </td>
       `;
     }).join('');

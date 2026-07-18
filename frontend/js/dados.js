@@ -55,6 +55,23 @@ function turnoAtual() {
   return turno && turnosValidosHoje.includes(turno) ? turno : null;
 }
 
+// Converte "2026-07-20" (ou o texto com hora que às vezes vem do banco)
+// pro nome do dia da semana do sistema. Usa o construtor local do Date,
+// pra não sofrer bug de fuso horário.
+function diaDaSemanaDeData(dataISO) {
+  const apenasData = (dataISO || '').toString().slice(0, 10); // corta a hora, se vier junto
+  const [ano, mes, dia] = apenasData.split('-').map(Number);
+  const data = new Date(ano, mes - 1, dia);
+  const mapa = { 1: 'Segunda-Feira', 2: 'Terça-Feira', 3: 'Quarta-Feira', 4: 'Quinta-Feira', 5: 'Sexta-Feira', 6: 'Sábado' };
+  return mapa[data.getDay()] || null; // null = domingo
+}
+
+function formatarDataBR(dataISO) {
+  const apenasData = (dataISO || '').toString().slice(0, 10);
+  const [ano, mes, dia] = apenasData.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
 // Turnos livres de uma sala num dia qualquer da semana (não só hoje)
 function turnosLivresNoDia(dados, sala, dia) {
   return turnosDoDia(dia).filter(turno => {

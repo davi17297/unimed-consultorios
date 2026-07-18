@@ -194,6 +194,10 @@
     width: 100%; font-size: 11px; margin-top: 6px; color: var(--ink-400); text-align: center;
     border: none; border-top: 1px dashed rgba(14,22,19,.12); border-radius: 0; padding: 5px 2px 0; background: none;
   }
+  .aviso-reposicao {
+    margin-top: 6px; padding: 4px 6px; border-radius: 6px; background: var(--amber-100);
+    color: var(--amber-600); font-size: 10.5px; font-weight: 600; line-height: 1.3;
+  }
 
   .resumo-grade { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
   .resumo-grade .item { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 8px 14px; min-width: 84px; }

@@ -21,7 +21,7 @@ app.get('/api/dados', async (req, res) => {
       pool.query('SELECT * FROM salas ORDER BY nome'),
       pool.query('SELECT * FROM sala_especialidades'),
       pool.query('SELECT * FROM escala'),
-      pool.query('SELECT * FROM reposicoes ORDER BY data DESC')
+      pool.query("SELECT id, medico_id, sala_id, to_char(data, 'YYYY-MM-DD') AS data, turno, motivo, observacao FROM reposicoes ORDER BY data DESC")
     ]);
 
     const salas = salasRaw.rows.map(s => ({

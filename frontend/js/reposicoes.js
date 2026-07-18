@@ -3,20 +3,6 @@
 // específicas (fora da escala fixa semanal). Depende de dados.js.
 // ============================================================
 
-// Converte "2026-07-20" pro nome do dia da semana do sistema
-// (usando o construtor local do Date, pra não sofrer bug de fuso horário).
-function diaDaSemanaDeData(dataISO) {
-  const [ano, mes, dia] = dataISO.split('-').map(Number);
-  const data = new Date(ano, mes - 1, dia);
-  const mapa = { 1: 'Segunda-Feira', 2: 'Terça-Feira', 3: 'Quarta-Feira', 4: 'Quinta-Feira', 5: 'Sexta-Feira', 6: 'Sábado' };
-  return mapa[data.getDay()] || null; // null = domingo
-}
-
-function formatarDataBR(dataISO) {
-  const [ano, mes, dia] = dataISO.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
-
 // Consultórios "vagos" numa data+turno: livres na escala fixa daquele dia
 // da semana E ainda não usados por outra reposição na mesma data/turno.
 function obterSalasVagas(dados, dataISO, turno) {
