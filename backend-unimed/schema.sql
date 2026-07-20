@@ -88,3 +88,23 @@ CREATE TABLE IF NOT EXISTS snapshots_mensais (
 );
 
 CREATE INDEX IF NOT EXISTS idx_snapshots_mes ON snapshots_mensais(mes);
+
+-- Fechamento de agenda: quando um médico avisa que não vai atender numa
+-- semana específica do horário fixo dele. O consultório fica livre por
+-- 7 dias (data_inicio até data_fim) e depois volta sozinho pro médico de
+-- sempre — a escala fixa (tabela "escala") NÃO é alterada, isso é só uma
+-- exceção temporária por cima dela.
+CREATE TABLE IF NOT EXISTS fechamentos_agenda (
+  id SERIAL PRIMARY KEY,
+  medico_id INTEGER NOT NULL REFERENCES medicos(id) ON DELETE CASCADE,
+  sala_id INTEGER NOT NULL REFERENCES salas(id) ON DELETE CASCADE,
+  dia_semana TEXT NOT NULL CHECK (dia_semana IN
+    ('Segunda-Feira','Terça-Feira','Quarta-Feira','Quinta-Feira','Sexta-Feira','Sábado')),
+  turno TEXT NOT NULL CHECK (turno IN ('08h às 12h','12h às 16h','16h às 20h')),
+  data_inicio DATE NOT NULL,
+  data_fim DATE NOT NULL,
+  motivo TEXT,
+  criado_em TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fechamentos_datas ON fechamentos_agenda(data_inicio, data_fim);

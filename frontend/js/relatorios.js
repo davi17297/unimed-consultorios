@@ -137,12 +137,39 @@ function renderizarResumoReposicoesPorMes() {
     : `<p class="vazio">Nenhuma reposição registrada ainda.</p>`;
 }
 
+// ---------- Resumo de fechamentos de agenda por mês ----------
+function renderizarResumoFechamentosPorMes() {
+  const dados = banco.ler();
+  const porMes = {};
+
+  (dados.fechamentos || []).forEach(f => {
+    const mes = f.data_inicio.slice(0, 7);
+    const medico = dados.medicos.find(m => m.id === f.medico_id);
+    porMes[mes] = porMes[mes] || { qtd: 0, medicos: new Set() };
+    porMes[mes].qtd += 1;
+    porMes[mes].medicos.add(medico ? formatarNomeMedico(medico) : '(médico removido)');
+  });
+
+  const meses = Object.keys(porMes).sort().reverse();
+  document.getElementById('resumo-fechamentos-por-mes').innerHTML = meses.length > 0
+    ? meses.map(m => `
+        <div class="alerta-item">
+          <div class="conteudo">
+            <div class="titulo">${nomeMesPtBr(m)}</div>
+            <div class="detalhe">${porMes[m].qtd} fechamento(s) · ${porMes[m].medicos.size} médico(s) diferente(s)</div>
+          </div>
+        </div>
+      `).join('')
+    : `<p class="vazio">Nenhum fechamento de agenda registrado ainda.</p>`;
+}
+
 function carregarPaginaRelatorios() {
   document.getElementById('nome-mes-atual').textContent = nomeMesPtBr(mesAtualISO());
   document.getElementById('link-exportar-relatorio').href = `${API_BASE_URL}/api/exportar-relatorio`;
   renderizarGraficoEvolucao();
   renderizarSeletorMesDetalhe();
   renderizarResumoReposicoesPorMes();
+  renderizarResumoFechamentosPorMes();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

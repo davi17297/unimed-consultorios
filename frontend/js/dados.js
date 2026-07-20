@@ -99,7 +99,7 @@ function turnosLivresNoDia(dados, sala, dia) {
 }
 
 function estadoInicial() {
-  return { especialidades: [], medicos: [], salas: [], escala: {}, reposicoes: [] };
+  return { especialidades: [], medicos: [], salas: [], escala: {}, reposicoes: [], fechamentos: [] };
 }
 
 // Motivos fixos de reposição, pra facilitar contar depois quantas foram de cada tipo
@@ -162,7 +162,10 @@ const api = {
   excluirReposicao: (id) => chamarApi(`/api/reposicoes/${id}`, 'DELETE'),
   salvarSnapshot: (mes, itens) => chamarApi('/api/snapshots', 'POST', { mes, itens }),
   buscarSnapshots: () => chamarApi('/api/snapshots', 'GET'),
-  excluirSnapshot: (mes) => chamarApi(`/api/snapshots/${mes}`, 'DELETE')
+  excluirSnapshot: (mes) => chamarApi(`/api/snapshots/${mes}`, 'DELETE'),
+  criarFechamento: (medico_id, sala_id, dia_semana, turno, data_inicio, motivo) =>
+    chamarApi('/api/fechamentos', 'POST', { medico_id, sala_id, dia_semana, turno, data_inicio, motivo }),
+  excluirFechamento: (id) => chamarApi(`/api/fechamentos/${id}`, 'DELETE')
 };
 
 const pct = (v) => (v * 100).toFixed(1) + '%';
@@ -193,9 +196,26 @@ function formatarNomeMedico(medico) {
   return `${titulo} ${nome}`;
 }
 
+// Verifica se um horário (sala+dia+turno) está com a agenda fechada numa
+// data qualquer (dentro do período de 7 dias de algum fechamento
+// registrado). Retorna o fechamento encontrado, ou null se não tiver nenhum.
+function fechamentoNaData(dados, salaId, dia, turno, dataISO) {
+  return (dados.fechamentos || []).find(f =>
+    f.sala_id === salaId && f.dia_semana === dia && f.turno === turno &&
+    dataISO >= f.data_inicio && dataISO <= f.data_fim
+  ) || null;
+}
+
+function fechamentoAtivo(dados, salaId, dia, turno) {
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  return fechamentoNaData(dados, salaId, dia, turno, hojeISO);
+}
+
 // Instalada/Atual agora somam a capacidade REAL de cada horário:
 // se tem médico marcado e ele tem "pacientes_por_turno" cadastrado, usa esse
 // número; senão (ou se o horário está livre) usa o padrão do consultório.
+// Horário com fechamento de agenda ativo conta como livre, mesmo que a
+// escala fixa ainda tenha um médico marcado ali.
 function calcularSala(dados, sala) {
   let ocupados = 0;
   let instalada = 0;
@@ -207,7 +227,8 @@ function calcularSala(dados, sala) {
   DIAS.forEach(dia => {
     turnosDoDia(dia).forEach(turno => {
       const celula = dados.escala[chaveCelula(sala.id, dia, turno)];
-      const medico = celula && celula.medico_id ? dados.medicos.find(m => m.id === celula.medico_id) : null;
+      const fechado = fechamentoAtivo(dados, sala.id, dia, turno);
+      const medico = (celula && celula.medico_id && !fechado) ? dados.medicos.find(m => m.id === celula.medico_id) : null;
       const vagasDesseHorario = (medico && medico.pacientes_por_turno) ? Number(medico.pacientes_por_turno) : vagasPadrao;
 
       instalada += vagasDesseHorario;

@@ -154,7 +154,8 @@ function renderizarGrade() {
       if (!turnos.includes(turno)) return `<td class="vazia">—</td>`;
       const chave = chaveCelula(sala.id, dia, turno);
       const celula = dados.escala[chave] || { medico_id: '', obs: '' };
-      const ocupada = !!celula.medico_id;
+      const fechado = fechamentoAtivo(dados, sala.id, dia, turno);
+      const ocupada = !!celula.medico_id && !fechado;
 
       let medicosPermitidos = medicosPermitidosBase;
       if (celula.medico_id && !medicosPermitidos.some(m => String(m.id) === String(celula.medico_id))) {
@@ -176,14 +177,34 @@ function renderizarGrade() {
         ? `<div class="aviso-reposicao">⚠ Reposição ${formatarDataBR(reposicoesDaCelula[0].data)}: ${formatarNomeMedico(dados.medicos.find(m => m.id === reposicoesDaCelula[0].medico_id))}</div>`
         : '';
 
-      return `
-        <td class="${ocupada ? 'celula-ocupada' : 'celula-livre'}">
+      let selectHtml, extraHtml;
+      if (fechado) {
+        const medicoFechado = dados.medicos.find(m => m.id === celula.medico_id);
+        selectHtml = `<select disabled><option>${formatarNomeMedico(medicoFechado)}</option></select>`;
+        extraHtml = `
+          <div class="aviso-fechamento">
+            🔓 Fechado até ${formatarDataBR(fechado.data_fim)}<br>${formatarNomeMedico(medicoFechado)} volta depois
+            <button type="button" class="link-reabrir" onclick="reabrirAgenda(${fechado.id})">Reabrir agora</button>
+          </div>
+        `;
+      } else {
+        selectHtml = `
           <select onchange="atualizarCelula('${chave}', this.value, null)">
             <option value="">— livre —</option>
             ${opcoesMedicos}
           </select>
-          <input class="obs" placeholder="horário/obs" value="${celula.obs || ''}"
+        `;
+        extraHtml = ocupada
+          ? `<button type="button" class="link-fechar" onclick="fecharAgenda(${sala.id}, '${dia}', '${turno}', ${celula.medico_id})">🔒 Fechar 1 semana</button>`
+          : '';
+      }
+
+      return `
+        <td class="${ocupada ? 'celula-ocupada' : 'celula-livre'}">
+          ${selectHtml}
+          <input class="obs" placeholder="horário/obs" value="${celula.obs || ''}" ${fechado ? 'disabled' : ''}
                  onchange="atualizarCelula('${chave}', null, this.value)">
+          ${extraHtml}
           ${avisoReposicao}
         </td>
       `;
@@ -218,6 +239,47 @@ function renderizarGrade() {
 // Agora essa função fala com o servidor. Ela recebe a chave da célula
 // (sala|dia|turno) e o que mudou (médico OU observação — o outro vem null),
 // mistura com o valor atual do cache, manda pra API e recarrega os dados.
+// Fecha a agenda desse médico nesse horário por 7 dias a partir de hoje.
+// Não mexe na escala fixa — é só uma exceção temporária por cima dela.
+async function fecharAgenda(salaId, dia, turno, medicoId) {
+  const dados = banco.ler();
+  const medico = dados.medicos.find(m => m.id === medicoId);
+  const hoje = new Date();
+  const hojeISO = hoje.toISOString().slice(0, 10);
+  const dataFim = new Date(hoje);
+  dataFim.setDate(dataFim.getDate() + 6);
+  const dataFimISO = dataFim.toISOString().slice(0, 10);
+
+  const confirmou = confirm(
+    `Fechar a agenda de ${formatarNomeMedico(medico)} nesse horário?\n\n` +
+    `Fica livre de ${formatarDataBR(hojeISO)} até ${formatarDataBR(dataFimISO)}. ` +
+    `Depois disso, volta a atender normalmente, sem precisar fazer nada.`
+  );
+  if (!confirmou) return;
+
+  try {
+    await api.criarFechamento(medicoId, salaId, dia, turno, hojeISO, null);
+    await carregarDados();
+    renderizarGrade();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui fechar essa agenda. Confere sua internet e tenta de novo.');
+  }
+}
+
+// Cancela um fechamento antes do prazo (o horário volta a valer a escala fixa na hora)
+async function reabrirAgenda(fechamentoId) {
+  if (!confirm('Reabrir esse horário agora, antes do prazo? A escala fixa volta a valer imediatamente.')) return;
+  try {
+    await api.excluirFechamento(fechamentoId);
+    await carregarDados();
+    renderizarGrade();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui reabrir. Confere sua internet e tenta de novo.');
+  }
+}
+
 async function atualizarCelula(chave, medicoId, obs) {
   const dados = banco.ler();
   const atual = dados.escala[chave] || { medico_id: '', obs: '' };

@@ -17,13 +17,14 @@ app.use(express.json());
 // ============================================================
 app.get('/api/dados', async (req, res) => {
   try {
-    const [especialidades, medicos, salasRaw, salaEsp, escalaRaw, reposicoes] = await Promise.all([
+    const [especialidades, medicos, salasRaw, salaEsp, escalaRaw, reposicoes, fechamentos] = await Promise.all([
       pool.query('SELECT * FROM especialidades ORDER BY nome'),
       pool.query('SELECT * FROM medicos ORDER BY nome'),
       pool.query('SELECT * FROM salas ORDER BY nome'),
       pool.query('SELECT * FROM sala_especialidades'),
       pool.query('SELECT * FROM escala'),
-      pool.query("SELECT id, medico_id, sala_id, to_char(data, 'YYYY-MM-DD') AS data, turno, motivo, observacao, pacientes_atendidos FROM reposicoes ORDER BY data DESC")
+      pool.query("SELECT id, medico_id, sala_id, to_char(data, 'YYYY-MM-DD') AS data, turno, motivo, observacao, pacientes_atendidos FROM reposicoes ORDER BY data DESC"),
+      pool.query("SELECT id, medico_id, sala_id, dia_semana, turno, to_char(data_inicio,'YYYY-MM-DD') AS data_inicio, to_char(data_fim,'YYYY-MM-DD') AS data_fim, motivo FROM fechamentos_agenda ORDER BY data_inicio DESC")
     ]);
 
     const salas = salasRaw.rows.map(s => ({
@@ -51,7 +52,8 @@ app.get('/api/dados', async (req, res) => {
       medicos: medicos.rows,
       salas,
       escala,
-      reposicoes: reposicoes.rows
+      reposicoes: reposicoes.rows,
+      fechamentos: fechamentos.rows
     });
   } catch (erro) {
     console.error(erro);
@@ -221,6 +223,37 @@ app.put('/api/escala', async (req, res) => {
 // ---------- REPOSIÇÕES ----------
 // Um médico que faltou um plantão fixo e repõe em outra data específica
 // (não recorrente), em qualquer consultório vago naquele dia/turno.
+// ---------- FECHAMENTOS DE AGENDA ----------
+// Um médico fecha o horário fixo dele por uma semana (7 dias a partir da
+// data informada). Não mexe na tabela "escala" — é só uma exceção temporária.
+app.post('/api/fechamentos', async (req, res) => {
+  const { medico_id, sala_id, dia_semana, turno, data_inicio, motivo } = req.body;
+  if (!medico_id || !sala_id || !dia_semana || !turno || !data_inicio) {
+    return res.status(400).json({ erro: 'medico_id, sala_id, dia_semana, turno e data_inicio são obrigatórios' });
+  }
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO fechamentos_agenda (medico_id, sala_id, dia_semana, turno, data_inicio, data_fim, motivo)
+       VALUES ($1,$2,$3,$4,$5, ($5::date + INTERVAL '6 days')::date, $6) RETURNING *`,
+      [medico_id, sala_id, dia_semana, turno, data_inicio, motivo || null]
+    );
+    res.status(201).json(rows[0]);
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao registrar fechamento' });
+  }
+});
+
+app.delete('/api/fechamentos/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM fechamentos_agenda WHERE id=$1', [req.params.id]);
+    res.status(204).end();
+  } catch (erro) {
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao excluir fechamento' });
+  }
+});
+
 app.post('/api/reposicoes', async (req, res) => {
   const { medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos } = req.body;
   if (!medico_id || !sala_id || !data || !turno || !motivo) {
@@ -522,9 +555,32 @@ function nomeMesExport(mesISO) {
 
 app.get('/api/exportar-relatorio', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM snapshots_mensais ORDER BY mes ASC, sala_nome ASC'
-    );
+    const [{ rows }, salasRaw, salaEsp, especialidades] = await Promise.all([
+      pool.query('SELECT * FROM snapshots_mensais ORDER BY mes ASC, sala_nome ASC'),
+      pool.query('SELECT id, localizacao FROM salas'),
+      pool.query('SELECT * FROM sala_especialidades'),
+      pool.query('SELECT * FROM especialidades')
+    ]);
+
+    // Descobre o "grupo clássico" de cada consultório, do mesmo jeito que
+    // a planilha antiga da Unimed organizava: consultório com UMA especialidade
+    // só vira "Consultório Fixo - X"; com várias/nenhuma vira "Consultórios mistos"
+    // (separado por local quando for ESB/Marista).
+    function grupoClassico(salaId, salaNomeFallback) {
+      const sala = salasRaw.rows.find(s => s.id === salaId);
+      const idsEsp = salaEsp.rows.filter(e => e.sala_id === salaId).map(e => e.especialidade_id);
+      const nomesEsp = especialidades.rows.filter(e => idsEsp.includes(e.id)).map(e => e.nome);
+      if (nomesEsp.length === 1) return `Consultório Fixo - ${nomesEsp[0]}`;
+      const loc = ((sala && sala.localizacao) || '').toLowerCase();
+      if (loc.includes('esb')) return 'Consultórios mistos - ESB';
+      if (loc.includes('marista')) return 'Consultórios mistos - Marista';
+      return 'Consultórios mistos';
+    }
+    function prioridadeGrupo(nome) {
+      if (nome === 'Consultórios mistos') return 0;
+      if (nome.startsWith('Consultório Fixo - ')) return 1;
+      return 2;
+    }
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Sistema Unimed Goiânia';
@@ -641,6 +697,111 @@ app.get('/api/exportar-relatorio', async (req, res) => {
         }]
       });
     }
+
+    // ---- Aba 3: Formato clássico da Unimed (agrupado, um bloco de colunas por mês) ----
+    const TOTAL_ENCAIXES_EXPORT = 16;
+    const wsClassico = workbook.addWorksheet('Histórico Mensal (Unimed)');
+
+    // Agrega instalada/atual/livre por [mes][grupo]
+    const dadosPorMesGrupo = {};
+    rows.forEach(r => {
+      const grupo = grupoClassico(r.sala_id, r.sala_nome);
+      dadosPorMesGrupo[r.mes] = dadosPorMesGrupo[r.mes] || {};
+      if (!dadosPorMesGrupo[r.mes][grupo]) {
+        dadosPorMesGrupo[r.mes][grupo] = { instalada: 0, atual: 0, livre: 0, numSalas: 0 };
+      }
+      dadosPorMesGrupo[r.mes][grupo].instalada += r.instalada;
+      dadosPorMesGrupo[r.mes][grupo].atual += r.atual;
+      dadosPorMesGrupo[r.mes][grupo].livre += r.livre;
+      dadosPorMesGrupo[r.mes][grupo].numSalas += 1;
+    });
+
+    const mesesClassico = Object.keys(dadosPorMesGrupo).sort();
+    const gruposUnicos = [...new Set(rows.map(r => grupoClassico(r.sala_id, r.sala_nome)))]
+      .sort((a, b) => {
+        const pa = prioridadeGrupo(a), pb = prioridadeGrupo(b);
+        return pa !== pb ? pa - pb : a.localeCompare(b);
+      });
+
+    const LARGURA_BLOCO = 9; // 5 colunas de dados + 1 vazia + 2 da caixinha % + 1 vazia antes do próximo mês
+
+    mesesClassico.forEach((mes, indiceMes) => {
+      const colBase = indiceMes * LARGURA_BLOCO + 1;
+      wsClassico.getColumn(colBase).width = 16;
+      wsClassico.getColumn(colBase + 1).width = 10;
+      wsClassico.getColumn(colBase + 2).width = 20;
+      wsClassico.getColumn(colBase + 3).width = 10;
+      wsClassico.getColumn(colBase + 4).width = 14;
+      wsClassico.getColumn(colBase + 6).width = 12;
+      wsClassico.getColumn(colBase + 7).width = 10;
+
+      gruposUnicos.forEach((grupo, indiceGrupo) => {
+        const linhaBase = indiceGrupo * 6 + 1;
+        const dadosGrupo = dadosPorMesGrupo[mes][grupo];
+
+        // Título do bloco (mesmo sem dado nesse mês, mostra o cabeçalho vazio)
+        wsClassico.mergeCells(linhaBase, colBase, linhaBase, colBase + 4);
+        const celTitulo = wsClassico.getCell(linhaBase, colBase);
+        celTitulo.value = `${grupo} - ${nomeMesExport(mes)}`;
+        celTitulo.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        celTitulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+        celTitulo.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        const celPctHeader = wsClassico.getCell(linhaBase, colBase + 6);
+        celPctHeader.value = '%';
+        celPctHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        celPctHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+        celPctHeader.alignment = { horizontal: 'center' };
+
+        if (!dadosGrupo) return; // esse grupo não tem dado registrado nesse mês
+
+        const periodosTotais = dadosGrupo.numSalas * TOTAL_ENCAIXES_EXPORT;
+        const percentual = dadosGrupo.instalada > 0 ? dadosGrupo.atual / dadosGrupo.instalada : 0;
+        const ocupadosAprox = Math.round(percentual * periodosTotais);
+        const livresAprox = periodosTotais - ocupadosAprox;
+
+        // Linha "N Períodos | | Capacidade instalada: | valor | agendamentos"
+        wsClassico.getCell(linhaBase + 2, colBase).value = `${periodosTotais} Períodos`;
+        wsClassico.getCell(linhaBase + 2, colBase + 2).value = 'Capacidade instalada:';
+        wsClassico.getCell(linhaBase + 2, colBase + 3).value = dadosGrupo.instalada;
+        wsClassico.getCell(linhaBase + 2, colBase + 4).value = 'agendamentos';
+
+        // Linha "Ocupados | contagem | Capacidade atual: | valor | agendamentos"
+        wsClassico.getCell(linhaBase + 3, colBase).value = 'Ocupados';
+        wsClassico.getCell(linhaBase + 3, colBase + 1).value = ocupadosAprox;
+        wsClassico.getCell(linhaBase + 3, colBase + 2).value = 'Capacidade atual:';
+        wsClassico.getCell(linhaBase + 3, colBase + 3).value = dadosGrupo.atual;
+        wsClassico.getCell(linhaBase + 3, colBase + 4).value = 'agendamentos';
+
+        // Linha "Livres: | contagem | Capacidade livre: | valor | agendamentos"
+        wsClassico.getCell(linhaBase + 4, colBase).value = 'Livres:';
+        wsClassico.getCell(linhaBase + 4, colBase + 1).value = livresAprox;
+        wsClassico.getCell(linhaBase + 4, colBase + 2).value = 'Capacidade livre:';
+        wsClassico.getCell(linhaBase + 4, colBase + 3).value = dadosGrupo.livre;
+        wsClassico.getCell(linhaBase + 4, colBase + 4).value = 'agendamentos';
+
+        // Caixinha colorida de % (Ocupados verde / Livres laranja)
+        const celOcupadosPct = wsClassico.getCell(linhaBase + 3, colBase + 6);
+        celOcupadosPct.value = 'Ocupados';
+        celOcupadosPct.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        celOcupadosPct.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+        const celOcupadosPctValor = wsClassico.getCell(linhaBase + 3, colBase + 7);
+        celOcupadosPctValor.value = percentual;
+        celOcupadosPctValor.numFmt = '0%';
+        celOcupadosPctValor.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        celOcupadosPctValor.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERDE_UNIMED } };
+
+        const celLivresPct = wsClassico.getCell(linhaBase + 4, colBase + 6);
+        celLivresPct.value = 'Livres';
+        celLivresPct.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        celLivresPct.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9822B' } };
+        const celLivresPctValor = wsClassico.getCell(linhaBase + 4, colBase + 7);
+        celLivresPctValor.value = 1 - percentual;
+        celLivresPctValor.numFmt = '0%';
+        celLivresPctValor.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        celLivresPctValor.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9822B' } };
+      });
+    });
 
     const nomeArquivo = `relatorio-ocupacao-unimed-${new Date().toISOString().slice(0, 10)}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

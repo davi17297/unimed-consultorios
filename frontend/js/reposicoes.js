@@ -14,7 +14,8 @@ function obterSalasVagas(dados, dataISO, turno, idExcluir) {
   const ocupadasPelaEscala = new Set();
   dados.salas.forEach(s => {
     const cel = dados.escala[chaveCelula(s.id, diaSemana, turno)];
-    if (cel && cel.medico_id) ocupadasPelaEscala.add(s.id);
+    const fechado = fechamentoNaData(dados, s.id, diaSemana, turno, dataISO);
+    if (cel && cel.medico_id && !fechado) ocupadasPelaEscala.add(s.id);
   });
 
   const ocupadasPorReposicao = new Set(
