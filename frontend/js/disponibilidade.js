@@ -250,11 +250,12 @@ async function fecharAgenda(salaId, dia, turno, medicoId) {
   dataFim.setDate(dataFim.getDate() + 6);
   const dataFimISO = dataFim.toISOString().slice(0, 10);
 
-  const confirmou = confirm(
-    `Fechar a agenda de ${formatarNomeMedico(medico)} nesse horário?\n\n` +
-    `Fica livre de ${formatarDataBR(hojeISO)} até ${formatarDataBR(dataFimISO)}. ` +
-    `Depois disso, volta a atender normalmente, sem precisar fazer nada.`
-  );
+  const confirmou = await confirmarModal(`
+    <h3>Fechar agenda</h3>
+    <p>Fechar a agenda de <strong>${formatarNomeMedico(medico)}</strong> nesse horário?</p>
+    <p>Fica livre de <strong>${formatarDataBR(hojeISO)}</strong> até <strong>${formatarDataBR(dataFimISO)}</strong>.
+    Depois disso, volta a atender normalmente, sem precisar fazer nada.</p>
+  `, { textoConfirmar: 'Fechar agenda' });
   if (!confirmou) return;
 
   try {
@@ -269,7 +270,12 @@ async function fecharAgenda(salaId, dia, turno, medicoId) {
 
 // Cancela um fechamento antes do prazo (o horário volta a valer a escala fixa na hora)
 async function reabrirAgenda(fechamentoId) {
-  if (!confirm('Reabrir esse horário agora, antes do prazo? A escala fixa volta a valer imediatamente.')) return;
+  const confirmou = await confirmarModal(`
+    <h3>Reabrir horário</h3>
+    <p>Reabrir esse horário agora, antes do prazo?</p>
+    <p>A escala fixa volta a valer imediatamente.</p>
+  `, { textoConfirmar: 'Reabrir agora' });
+  if (!confirmou) return;
   try {
     await api.excluirFechamento(fechamentoId);
     await carregarDados();

@@ -6,16 +6,23 @@
     --ink-900: #0E1613;
     --ink-600: #566268;
     --ink-400: #8B968F;
-    --green-900: #00351F;
-    --green-700: #00693E;
-    --green-600: #00834E;
-    --green-500: #00A868;
-    --green-100: #E4F5EC;
+
+    /* Paleta oficial Unimed — Primária + Secundária Escura predominam
+       (uso interno/profissional); Secundária Clara só em detalhes. */
+    --green-900: #00401A;  /* Secundária Escura — Pantone 357C */
+    --green-700: #00995D;  /* Primária — Pantone 348C */
+    --green-600: #0A5F55;  /* Secundária Escura — Pantone 561C */
+    --green-500: #00995D;  /* Primária (repetida, usada em barras/gradiente) */
+    --green-100: #E3F3EA;  /* tom clarinho derivado da Primária, pra fundo de badge */
     --green-50: #F1FAF5;
-    --amber-600: #B3720A;
-    --amber-100: #FCF1DA;
-    --red-600: #C13B30;
-    --red-100: #FBE9E7;
+    --lima-unimed: #B1D34B;  /* Secundária Clara — só detalhes/destaques pequenos */
+    --creme-unimed: #FFF0C7; /* Secundária Clara — só detalhes */
+
+    --amber-600: #F47920;   /* Secundária — Pantone 1585C (laranja) */
+    --amber-100: #FDE7D3;
+    --red-600: #ED1651;     /* Secundária — Pantone 192C (rosa/vermelho) */
+    --red-100: #FCE1EA;
+
     --shadow-card: 0 1px 2px rgba(14,22,19,.04), 0 1px 1px rgba(14,22,19,.03);
     --radius: 10px;
   }
@@ -158,7 +165,7 @@
   .legenda-grade .item { display: flex; align-items: center; gap: 6px; }
   .legenda-grade .amostra { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
   .legenda-grade .amostra.livre { background: var(--green-100); border: 1px solid #BFE6D0; }
-  .legenda-grade .amostra.ocupado { background: #F8D9D5; border: 1px solid #EFB6AE; }
+  .legenda-grade .amostra.ocupado { background: var(--red-100); border: 1px solid #F5B8CE; }
 
   table.grade { table-layout: fixed; border-collapse: separate; border-spacing: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-card); }
   table.grade thead th {
@@ -174,9 +181,9 @@
     color: var(--border-strong);
   }
   table.grade td.celula-livre { background: var(--green-50); border-color: #DCEFE0; }
-  table.grade td.celula-ocupada { background: #FCEEEC; border-color: #F5D2CC; }
+  table.grade td.celula-ocupada { background: var(--red-100); border-color: #F5B8CE; }
   table.grade td.celula-livre:hover { background: var(--green-100); }
-  table.grade td.celula-ocupada:hover { background: #FADEDA; }
+  table.grade td.celula-ocupada:hover { background: #FAD2E1; }
 
   table.grade select {
     width: 100%; font-size: 12.5px; font-weight: 600; padding: 7px 8px;
@@ -208,6 +215,24 @@
   }
   .link-fechar { color: var(--red-600); }
   .link-reabrir { color: var(--green-700); margin-top: 3px; }
+
+  /* ---------- Modal de confirmação ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(14,22,19,.45);
+    display: flex; align-items: center; justify-content: center; z-index: 1000;
+    animation: modalFadeIn .15s ease;
+  }
+  @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-caixa {
+    background: var(--surface); border-radius: 14px; max-width: 420px; width: 90%;
+    box-shadow: 0 20px 40px rgba(14,22,19,.25); overflow: hidden;
+  }
+  .modal-corpo { padding: 24px 24px 8px; }
+  .modal-corpo h3 { margin: 0 0 10px; font-size: 16px; color: var(--ink-900); }
+  .modal-corpo p { margin: 0 0 10px; font-size: 13.5px; color: var(--ink-600); line-height: 1.5; }
+  .modal-corpo p:last-child { margin-bottom: 0; }
+  .modal-corpo strong { color: var(--ink-900); }
+  .modal-acoes { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; background: var(--bg); }
 
   .resumo-grade { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
   .resumo-grade .item { background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 8px 14px; min-width: 84px; }

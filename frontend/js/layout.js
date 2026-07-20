@@ -35,3 +35,38 @@ async function atualizarTudo() {
 }
 
 document.addEventListener('DOMContentLoaded', atualizarRelogio);
+
+// ============================================================
+// Modal de confirmação com a cara do sistema, pra substituir o
+// confirm() feio do navegador. Uso: const ok = await confirmarModal(
+//   '<h3>Título</h3><p>Mensagem...</p>', { textoConfirmar: 'Confirmar' }
+// );
+// ============================================================
+function confirmarModal(mensagemHtml, opcoes = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-caixa">
+        <div class="modal-corpo">${mensagemHtml}</div>
+        <div class="modal-acoes">
+          <button class="btn" id="modal-botao-cancelar">${opcoes.textoCancelar || 'Cancelar'}</button>
+          <button class="btn btn-primario" id="modal-botao-confirmar">${opcoes.textoConfirmar || 'Confirmar'}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const remover = (resultado) => {
+      overlay.remove();
+      document.removeEventListener('keydown', aoTeclar);
+      resolve(resultado);
+    };
+    const aoTeclar = (e) => { if (e.key === 'Escape') remover(false); };
+
+    overlay.querySelector('#modal-botao-cancelar').addEventListener('click', () => remover(false));
+    overlay.querySelector('#modal-botao-confirmar').addEventListener('click', () => remover(true));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) remover(false); });
+    document.addEventListener('keydown', aoTeclar);
+  });
+}

@@ -311,7 +311,8 @@ const TURNOS_EXPORT = [
   { chave: '12h às 16h', rotulo: '12H ÀS 16H' },
   { chave: '16h às 20h', rotulo: '16H ÀS 20H' }
 ];
-const VERDE_UNIMED = 'FF00693E';
+const VERDE_UNIMED = 'FF00995D'; // Verde Primária oficial da Unimed (Pantone 348C)
+const LARANJA_UNIMED = 'FFF47920'; // Laranja Secundária (Pantone 1585C), usado pra "Livres"
 
 function sanitizarNomeAba(nome) {
   const limpo = (nome || 'Geral').replace(/[/\\?*[\]:]/g, ' ').trim();
@@ -529,8 +530,8 @@ function gerarGraficoLinhaPNG(valores, largura = 640, altura = 300) {
     const y = margem.topo + areaAltura - (f / 4) * areaAltura;
     linha(margem.esquerda, y, largura - margem.direita, y, 231, 235, 233, 0);
   }
-  linha(margem.esquerda, margem.topo, margem.esquerda, altura - margem.baixo, 216, 222, 219, 1);
-  linha(margem.esquerda, altura - margem.baixo, largura - margem.direita, altura - margem.baixo, 216, 222, 219, 1);
+  linha(margem.esquerda, margem.topo, margem.esquerda, altura - margem.baixo, 231, 235, 233, 1);
+  linha(margem.esquerda, altura - margem.baixo, largura - margem.direita, altura - margem.baixo, 231, 235, 233, 1);
 
   if (valores.length > 0) {
     const pontos = valores.map((v, i) => ({
@@ -538,9 +539,9 @@ function gerarGraficoLinhaPNG(valores, largura = 640, altura = 300) {
       y: margem.topo + areaAltura - v * areaAltura
     }));
     for (let i = 0; i < pontos.length - 1; i++) {
-      linha(pontos[i].x, pontos[i].y, pontos[i + 1].x, pontos[i + 1].y, 0, 105, 62, 3);
+      linha(pontos[i].x, pontos[i].y, pontos[i + 1].x, pontos[i + 1].y, 0, 153, 93, 3);
     }
-    pontos.forEach(p => linha(p.x, p.y, p.x, p.y, 0, 105, 62, 5));
+    pontos.forEach(p => linha(p.x, p.y, p.x, p.y, 0, 153, 93, 5));
   }
 
   return PNG.sync.write(png);
@@ -633,7 +634,7 @@ app.get('/api/exportar-relatorio', async (req, res) => {
       const celLivres = wsEvolucao.getCell(`H${linha}`);
       celLivres.value = `Livres ${((1 - percentual) * 100).toFixed(0)}%`;
       celLivres.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      celLivres.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9822B' } };
+      celLivres.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LARANJA_UNIMED } };
       celLivres.alignment = { horizontal: 'center' };
     });
 
@@ -794,12 +795,12 @@ app.get('/api/exportar-relatorio', async (req, res) => {
         const celLivresPct = wsClassico.getCell(linhaBase + 4, colBase + 6);
         celLivresPct.value = 'Livres';
         celLivresPct.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        celLivresPct.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9822B' } };
+        celLivresPct.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LARANJA_UNIMED } };
         const celLivresPctValor = wsClassico.getCell(linhaBase + 4, colBase + 7);
         celLivresPctValor.value = 1 - percentual;
         celLivresPctValor.numFmt = '0%';
         celLivresPctValor.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        celLivresPctValor.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9822B' } };
+        celLivresPctValor.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: LARANJA_UNIMED } };
       });
     });
 
