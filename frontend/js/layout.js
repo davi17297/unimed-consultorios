@@ -36,6 +36,16 @@ async function atualizarTudo() {
 
 document.addEventListener('DOMContentLoaded', atualizarRelogio);
 
+// Alguns navegadores, ao usar o botão "Voltar", só reexibem a página
+// "congelada" de antes (sem rodar o carregamento de novo) — isso fazia
+// telas como Dashboard parecerem desatualizadas depois de mexer em outra
+// página e voltar. Esse evento pega esse caso e força buscar tudo de novo.
+window.addEventListener('pageshow', (evento) => {
+  if (evento.persisted) {
+    atualizarTudo();
+  }
+});
+
 // ============================================================
 // Modal de confirmação com a cara do sistema, pra substituir o
 // confirm() feio do navegador. Uso: const ok = await confirmarModal(

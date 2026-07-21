@@ -112,7 +112,7 @@ const MOTIVOS_REPOSICAO = ['Falta', 'Troca de plantão', 'Feriado', 'Outro'];
 let dadosCache = estadoInicial();
 
 async function carregarDados() {
-  const resposta = await fetch(`${API_BASE_URL}/api/dados`);
+  const resposta = await fetch(`${API_BASE_URL}/api/dados`, { cache: 'no-store' });
   if (!resposta.ok) throw new Error('O servidor respondeu com erro ao carregar os dados.');
   dadosCache = await resposta.json();
   return dadosCache;
