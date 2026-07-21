@@ -133,10 +133,33 @@
   .ponto-vermelho { background: var(--red-600); }
   .ponto-ambar { background: var(--amber-600); }
 
-  .alerta-item { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; gap: 8px; }
+  .item-mes-wrapper { border-bottom: 1px solid var(--border); }
+  .item-mes-wrapper:last-child { border-bottom: none; }
+  .alerta-item { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; display: flex; align-items: center; gap: 8px; }
   .alerta-item:last-child { border-bottom: none; }
+  .item-mes-wrapper .alerta-item { border-bottom: none; } /* a borda já vem do wrapper */
+  .alerta-item .conteudo { flex: 1; }
   .alerta-item .conteudo .titulo { font-weight: 600; font-size: 13px; }
   .alerta-item .conteudo .detalhe { color: var(--ink-400); font-size: 12px; margin-top: 1px; }
+
+  .botao-expandir {
+    background: none; border: none; cursor: pointer; color: var(--ink-400);
+    font-size: 14px; padding: 4px 6px; border-radius: 6px; flex-shrink: 0;
+    transition: transform .15s ease, background .12s ease;
+  }
+  .botao-expandir:hover { background: var(--bg); color: var(--ink-900); }
+  .botao-expandir.aberto { transform: rotate(180deg); }
+
+  .detalhe-expandido-mes { padding: 0 0 10px; display: flex; flex-direction: column; gap: 6px; }
+  .linha-detalhe-mes {
+    display: flex; flex-wrap: wrap; gap: 3px 10px; font-size: 12px; color: var(--ink-600);
+    background: var(--bg); border-radius: 7px; padding: 7px 10px;
+  }
+  .linha-detalhe-mes .data { font-weight: 700; color: var(--ink-900); min-width: 108px; }
+  .linha-detalhe-mes .medico { font-weight: 600; color: var(--ink-900); }
+  .linha-detalhe-mes .local { color: var(--ink-400); }
+  .linha-detalhe-mes .motivo { color: var(--ink-600); }
+  .linha-detalhe-mes .qtd { margin-left: auto; font-weight: 600; color: var(--green-700); }
 
   /* ---------- Tabela refinada ---------- */
   table { width: 100%; border-collapse: collapse; font-size: 13px; }

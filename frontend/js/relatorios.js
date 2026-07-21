@@ -119,21 +119,43 @@ function renderizarResumoReposicoesPorMes() {
     const medico = dados.medicos.find(m => m.id === r.medico_id);
     const sala = dados.salas.find(s => s.id === r.sala_id);
     const pacientes = r.pacientes_atendidos || capacidadeDoMedico(medico, sala);
-    porMes[mes] = porMes[mes] || { qtd: 0, pacientes: 0 };
+    porMes[mes] = porMes[mes] || { qtd: 0, pacientes: 0, itens: [] };
     porMes[mes].qtd += 1;
     porMes[mes].pacientes += pacientes;
+    porMes[mes].itens.push({
+      data: r.data, turno: r.turno, motivo: r.motivo, observacao: r.observacao,
+      pacientes, medico: medico ? formatarNomeMedico(medico) : '(médico removido)',
+      sala: sala ? sala.nome : '(consultório removido)'
+    });
   });
 
   const meses = Object.keys(porMes).sort().reverse();
   document.getElementById('resumo-reposicoes-por-mes').innerHTML = meses.length > 0
-    ? meses.map(m => `
-        <div class="alerta-item">
-          <div class="conteudo">
-            <div class="titulo">${nomeMesPtBr(m)}</div>
-            <div class="detalhe">${porMes[m].qtd} reposição(ões) · ${porMes[m].pacientes} pacientes remanejados</div>
+    ? meses.map((m, i) => {
+        const idDetalhe = `detalhe-reposicoes-${i}`;
+        const itensOrdenados = [...porMes[m].itens].sort((a, b) => b.data.localeCompare(a.data));
+        const linhasDetalhe = itensOrdenados.map(item => `
+          <div class="linha-detalhe-mes">
+            <span class="data">${formatarDataBR(item.data)}</span>
+            <span class="medico">${item.medico}</span>
+            <span class="local">${item.sala} · ${item.turno}</span>
+            <span class="motivo">${item.motivo}${item.observacao ? ` — ${item.observacao}` : ''}</span>
+            <span class="qtd">${item.pacientes} pac.</span>
           </div>
-        </div>
-      `).join('')
+        `).join('');
+        return `
+          <div class="item-mes-wrapper">
+            <div class="alerta-item">
+              <div class="conteudo">
+                <div class="titulo">${nomeMesPtBr(m)}</div>
+                <div class="detalhe">${porMes[m].qtd} reposição(ões) · ${porMes[m].pacientes} pacientes remanejados</div>
+              </div>
+              <button type="button" class="botao-expandir" onclick="alternarDetalheMes('${idDetalhe}', this)" aria-label="Ver mais">▾</button>
+            </div>
+            <div id="${idDetalhe}" class="detalhe-expandido-mes oculto">${linhasDetalhe}</div>
+          </div>
+        `;
+      }).join('')
     : `<p class="vazio">Nenhuma reposição registrada ainda.</p>`;
 }
 
@@ -145,22 +167,56 @@ function renderizarResumoFechamentosPorMes() {
   (dados.fechamentos || []).forEach(f => {
     const mes = f.data_inicio.slice(0, 7);
     const medico = dados.medicos.find(m => m.id === f.medico_id);
-    porMes[mes] = porMes[mes] || { qtd: 0, medicos: new Set() };
+    const sala = dados.salas.find(s => s.id === f.sala_id);
+    const nomeMedico = medico ? formatarNomeMedico(medico) : '(médico removido)';
+    porMes[mes] = porMes[mes] || { qtd: 0, medicos: new Set(), itens: [] };
     porMes[mes].qtd += 1;
-    porMes[mes].medicos.add(medico ? formatarNomeMedico(medico) : '(médico removido)');
+    porMes[mes].medicos.add(nomeMedico);
+    porMes[mes].itens.push({
+      medico: nomeMedico, sala: sala ? sala.nome : '(consultório removido)',
+      dia_semana: f.dia_semana, turno: f.turno,
+      data_inicio: f.data_inicio, data_fim: f.data_fim, motivo: f.motivo
+    });
   });
 
   const meses = Object.keys(porMes).sort().reverse();
   document.getElementById('resumo-fechamentos-por-mes').innerHTML = meses.length > 0
-    ? meses.map(m => `
-        <div class="alerta-item">
-          <div class="conteudo">
-            <div class="titulo">${nomeMesPtBr(m)}</div>
-            <div class="detalhe">${porMes[m].qtd} fechamento(s) · ${porMes[m].medicos.size} médico(s) diferente(s)</div>
+    ? meses.map((m, i) => {
+        const idDetalhe = `detalhe-fechamentos-${i}`;
+        const itensOrdenados = [...porMes[m].itens].sort((a, b) => b.data_inicio.localeCompare(a.data_inicio));
+        const linhasDetalhe = itensOrdenados.map(item => `
+          <div class="linha-detalhe-mes">
+            <span class="data">${formatarDataBR(item.data_inicio)} até ${formatarDataBR(item.data_fim)}</span>
+            <span class="medico">${item.medico}</span>
+            <span class="local">${item.sala} · ${item.dia_semana}, ${item.turno}</span>
+            <span class="motivo">${item.motivo || 'sem motivo informado'}</span>
           </div>
-        </div>
-      `).join('')
+        `).join('');
+        return `
+          <div class="item-mes-wrapper">
+            <div class="alerta-item">
+              <div class="conteudo">
+                <div class="titulo">${nomeMesPtBr(m)}</div>
+                <div class="detalhe">${porMes[m].qtd} fechamento(s) · ${porMes[m].medicos.size} médico(s) diferente(s)</div>
+              </div>
+              <button type="button" class="botao-expandir" onclick="alternarDetalheMes('${idDetalhe}', this)" aria-label="Ver mais">▾</button>
+            </div>
+            <div id="${idDetalhe}" class="detalhe-expandido-mes oculto">${linhasDetalhe}</div>
+          </div>
+        `;
+      }).join('')
     : `<p class="vazio">Nenhum fechamento de agenda registrado ainda.</p>`;
+}
+
+// Abre/fecha o detalhamento de um mês (usado tanto em Reposições quanto
+// em Fechamentos de agenda). Gira a setinha e mostra/esconde a lista.
+function alternarDetalheMes(idDetalhe, botao) {
+  const painel = document.getElementById(idDetalhe);
+  if (!painel) return;
+  const abrindo = painel.classList.contains('oculto');
+  painel.classList.toggle('oculto', !abrindo);
+  botao.classList.toggle('aberto', abrindo);
+  botao.setAttribute('aria-label', abrindo ? 'Ver menos' : 'Ver mais');
 }
 
 function carregarPaginaRelatorios() {
