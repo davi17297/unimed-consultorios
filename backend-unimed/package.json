@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "db:init": "node init-db.js",
-    "db:limpar": "node limpar-tudo.js"
+    "db:limpar": "node limpar-tudo.js",
+    "db:mesclar-medicos": "node mesclar-medicos-duplicados.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

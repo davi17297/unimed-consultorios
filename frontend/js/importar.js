@@ -55,16 +55,33 @@ function nomeCompletoSala(salaEspera, consultorio) {
   return co.toLowerCase().includes(se.toLowerCase()) ? co : `${se} - ${co}`;
 }
 
-// Separa "Dr. Fulano - (13:00 - 16:00) até 23/03" em nome + observação,
-// usando o primeiro parêntese como divisor. Se não achar parêntese,
-// o texto inteiro vira o nome.
+// Separa "Dr. Fulano - (13:00 - 16:00) até 23/03" ou "Dra. Fulana - 17/07"
+// ou "Dr. Beltrano - neuro" em nome + observação. Isso existe porque, na
+// planilha manual antiga, era comum colar datas/horários/anotações direto
+// junto do nome do médico na mesma célula — sem isso, cada variação de
+// texto colado (ex: "Dra. X", "Dra. X - 17/07", "Dra. X - 18/07") virava
+// um médico DIFERENTE no sistema, mesmo sendo a mesma pessoa.
 function separarNomeEObservacao(texto) {
   const bruto = (texto || '').toString().trim();
-  const idx = bruto.indexOf('(');
-  if (idx === -1) return { nome: bruto, obs: '' };
-  let nome = bruto.slice(0, idx).trim().replace(/[-–]\s*$/, '').trim();
-  const obs = bruto.slice(idx).trim();
-  return { nome: nome || bruto, obs };
+
+  // Primeiro, observação entre parênteses (ex: horário customizado)
+  const idxParen = bruto.indexOf('(');
+  if (idxParen !== -1) {
+    const nome = bruto.slice(0, idxParen).trim().replace(/[-–]\s*$/, '').trim();
+    const obs = bruto.slice(idxParen).trim();
+    return { nome: nome || bruto, obs };
+  }
+
+  // Senão, qualquer coisa depois de um traço solto (com espaço antes)
+  // vira observação — cobre "- 17/07", "- neuro", "- Gastro pediatra" etc.
+  const idxTraco = bruto.search(/\s[-–]\s?/);
+  if (idxTraco !== -1) {
+    const nome = bruto.slice(0, idxTraco).trim();
+    const obs = bruto.slice(idxTraco).replace(/^[\s\-–]+/, '').trim();
+    if (nome) return { nome, obs };
+  }
+
+  return { nome: bruto, obs: '' };
 }
 
 // ---------- Reconhecimento do formato "real" (planilha original da Unimed) ----------
@@ -363,7 +380,11 @@ function processarLinhasModelo(linhasBrutas) {
 
     const diaBruto = linha['Dia da Semana'];
     const turnoBruto = linha['Turno'];
-    const medico = (linha['Médico'] || '').toString().trim();
+    const { nome: medico, obs: obsDoNome } = separarNomeEObservacao(linha['Médico']);
+    const observacaoPlanilha = (linha['Observação'] || '').toString().trim();
+    // Se a pessoa já preencheu a coluna "Observação" própria, ela tem
+    // prioridade; senão usa o que sobrou colado no nome do médico.
+    const observacaoFinal = observacaoPlanilha || obsDoNome;
 
     let dia = null, turno = null;
     if (diaBruto || turnoBruto || medico) {
@@ -386,7 +407,7 @@ function processarLinhasModelo(linhasBrutas) {
       turno,
       medico: medico || null,
       especialidadeMedico: (linha['Especialidade do Médico'] || '').toString().trim() || null,
-      observacao: (linha['Observação'] || '').toString().trim()
+      observacao: observacaoFinal
     });
   });
 
