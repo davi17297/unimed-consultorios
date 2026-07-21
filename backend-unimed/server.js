@@ -10,6 +10,101 @@ app.use(cors());
 app.use(express.json());
 
 // ============================================================
+// Auto-retrato do mês atual (substitui o botão manual "Salvar
+// retrato"). Toda vez que a tela busca os dados (GET /api/dados —
+// que acontece depois de QUALQUER edição), recalcula e regrava o
+// snapshot do mês corrente em segundo plano, sem o coordenador
+// precisar clicar em nada. Meses passados continuam congelados do
+// jeito que ficaram na última vez que foram "o mês atual".
+// ============================================================
+const DIAS_SEMANA_SNAPSHOT = ['Segunda-Feira','Terça-Feira','Quarta-Feira','Quinta-Feira','Sexta-Feira','Sábado'];
+function turnosDoDiaSnapshot(dia) {
+  return dia === 'Sábado' ? ['08h às 12h'] : ['08h às 12h','12h às 16h','16h às 20h'];
+}
+const SEMANAS_POR_MES_SNAPSHOT = 4;
+
+// Usa o fuso de Brasília pra não errar o "mês/dia de hoje" caso o
+// servidor rode em UTC (o que mudaria a data perto da virada do dia).
+function agoraNoBrasil() {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date());
+  const valor = (tipo) => partes.find(p => p.type === tipo).value;
+  return { ano: valor('year'), mes: valor('month'), dia: valor('day') };
+}
+function mesAtualISOServidor() {
+  const { ano, mes } = agoraNoBrasil();
+  return `${ano}-${mes}`;
+}
+function dataHojeISOServidor() {
+  const { ano, mes, dia } = agoraNoBrasil();
+  return `${ano}-${mes}-${dia}`;
+}
+
+async function atualizarSnapshotMesAtual() {
+  try {
+    const hojeISO = dataHojeISOServidor();
+    const mes = mesAtualISOServidor();
+
+    const [salasRaw, medicosRaw, escalaRaw, fechamentosRaw] = await Promise.all([
+      pool.query('SELECT * FROM salas'),
+      pool.query('SELECT * FROM medicos'),
+      pool.query('SELECT * FROM escala'),
+      pool.query('SELECT sala_id, dia_semana, turno FROM fechamentos_agenda WHERE $1 BETWEEN data_inicio AND data_fim', [hojeISO])
+    ]);
+
+    const escalaMap = new Map();
+    escalaRaw.rows.forEach(e => escalaMap.set(`${e.sala_id}|${e.dia_semana}|${e.turno}`, e));
+    const fechamentosAtivos = new Set(fechamentosRaw.rows.map(f => `${f.sala_id}|${f.dia_semana}|${f.turno}`));
+
+    for (const sala of salasRaw.rows) {
+      const vagasPadrao = Number(sala.capacidade_por_turno) || 16;
+      let instalada = 0;
+      let atual = 0;
+
+      DIAS_SEMANA_SNAPSHOT.forEach(dia => {
+        turnosDoDiaSnapshot(dia).forEach(turno => {
+          const chave = `${sala.id}|${dia}|${turno}`;
+          const celula = escalaMap.get(chave);
+          const fechado = fechamentosAtivos.has(chave);
+          const medico = (celula && celula.medico_id && !fechado)
+            ? medicosRaw.rows.find(m => m.id === celula.medico_id)
+            : null;
+
+          let vagas = vagasPadrao;
+          if (medico) {
+            if (celula.pacientes_por_turno !== null && celula.pacientes_por_turno !== undefined) {
+              vagas = Number(celula.pacientes_por_turno);
+            } else if (medico.pacientes_por_turno) {
+              vagas = Number(medico.pacientes_por_turno);
+            }
+          }
+          instalada += vagas;
+          if (medico) atual += vagas;
+        });
+      });
+
+      const instaladaMensal = instalada * SEMANAS_POR_MES_SNAPSHOT;
+      const atualMensal = atual * SEMANAS_POR_MES_SNAPSHOT;
+      const livreMensal = instaladaMensal - atualMensal;
+      const percentual = instaladaMensal > 0 ? atualMensal / instaladaMensal : 0;
+
+      await pool.query(
+        `INSERT INTO snapshots_mensais (mes, sala_id, sala_nome, instalada, atual, livre, percentual)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (mes, sala_id)
+         DO UPDATE SET sala_nome=$3, instalada=$4, atual=$5, livre=$6, percentual=$7, criado_em=now()`,
+        [mes, sala.id, sala.nome, instaladaMensal, atualMensal, livreMensal, percentual]
+      );
+    }
+  } catch (erro) {
+    // Isso é só um "bônus" em segundo plano — se der erro aqui, não pode
+    // derrubar a rota principal que chamou essa função.
+    console.error('Erro ao atualizar o retrato automático do mês atual:', erro);
+  }
+}
+
+// ============================================================
 // GET /api/dados
 // Retorna TUDO de uma vez, no MESMO formato que o frontend já usa
 // no localStorage (mesma forma que banco.ler() devolve hoje).
@@ -56,6 +151,9 @@ app.get('/api/dados', async (req, res) => {
       reposicoes: reposicoes.rows,
       fechamentos: fechamentos.rows
     });
+
+    // Roda depois de já ter respondido — não atrasa a tela por causa disso.
+    atualizarSnapshotMesAtual();
   } catch (erro) {
     console.error(erro);
     res.status(500).json({ erro: 'Erro ao carregar os dados' });

@@ -13,34 +13,8 @@ function mesesUnicosOrdenados() {
   return [...new Set(snapshotsCache.map(s => s.mes))].sort();
 }
 
-// ---------- Botão "Salvar retrato do mês atual" ----------
-document.getElementById('botao-salvar-snapshot').addEventListener('click', async () => {
-  const botao = document.getElementById('botao-salvar-snapshot');
-  const status = document.getElementById('status-snapshot');
-  botao.disabled = true;
-  status.textContent = 'Salvando...';
-  try {
-    const { salas } = calcularDashboard();
-    const itens = salas.map(r => ({
-      sala_id: r.sala.id,
-      sala_nome: r.sala.nome,
-      instalada: r.instalada,
-      atual: r.atual,
-      livre: r.livre,
-      percentual: r.percentual
-    }));
-    await api.salvarSnapshot(mesAtualISO(), itens);
-    await carregarSnapshots();
-    renderizarGraficoEvolucao();
-    renderizarSeletorMesDetalhe();
-    status.textContent = `Salvo! (${itens.length} consultório(s) registrados)`;
-  } catch (erro) {
-    console.error(erro);
-    status.textContent = 'Não consegui salvar. Confere sua internet e tenta de novo.';
-  } finally {
-    botao.disabled = false;
-  }
-});
+// O retrato do mês atual agora é atualizado sozinho pelo backend (toda
+// vez que os dados são buscados) — não existe mais botão manual aqui.
 
 // ---------- Gráfico de evolução (% médio por mês) ----------
 function renderizarGraficoEvolucao() {

@@ -56,21 +56,19 @@
         </div>
 
         <div class="card card-pad">
-          <h3>Salvar retrato do mês atual</h3>
+          <h3>Retrato do mês atual</h3>
           <p style="font-size:13px;color:var(--ink-600);margin:0 0 12px">
-            Isso guarda a ocupação de agora (que já aparece no Dashboard) como o registro oficial
-            desse mês no histórico. Recomendado fazer isso no fim de cada mês, ou quando quiser
-            atualizar o retrato do mês corrente.
+            Os números do mês atual (<span id="nome-mes-atual"></span>) são atualizados sozinhos,
+            direto da ocupação de agora — não precisa clicar em nada. Só os meses que já viraram
+            passado ficam "congelados" do jeito que estavam.
           </p>
-          <button class="btn btn-primario" id="botao-salvar-snapshot">📸 Salvar retrato de <span id="nome-mes-atual"></span></button>
           <a class="btn" id="link-exportar-relatorio" href="#">⇩ Exportar relatório (.xlsx)</a>
-          <span id="status-snapshot" style="font-size:12px;color:var(--ink-400);margin-left:10px"></span>
         </div>
 
         <div class="card card-pad">
           <h3>Evolução da ocupação (% médio de todos os consultórios)</h3>
           <div class="grafico-barras" id="grafico-evolucao" style="height:180px"></div>
-          <p id="aviso-sem-historico" class="vazio oculto">Ainda não há nenhum retrato salvo. Clica em "Salvar retrato" acima pra começar o histórico.</p>
+          <p id="aviso-sem-historico" class="vazio oculto">Ainda não há histórico pra mostrar aqui.</p>
         </div>
 
         <div class="card card-pad">
