@@ -152,6 +152,7 @@ const api = {
     chamarApi(`/api/medicos/${id}`, 'PUT', { nome, especialidade_id, titulo, pacientes_por_turno }),
   excluirMedico: (id) => chamarApi(`/api/medicos/${id}`, 'DELETE'),
   criarSala: (dadosSala) => chamarApi('/api/salas', 'POST', dadosSala),
+  editarSala: (id, dadosSala) => chamarApi(`/api/salas/${id}`, 'PUT', dadosSala),
   excluirSala: (id) => chamarApi(`/api/salas/${id}`, 'DELETE'),
   atualizarCelula: (sala_id, dia_semana, turno, medico_id, obs) =>
     chamarApi('/api/escala', 'PUT', { sala_id, dia_semana, turno, medico_id, obs }),

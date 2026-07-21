@@ -3,13 +3,15 @@
 // dados.js.
 // ============================================================
 
-function carregarOpcoesEspecialidades() {
+let salaEditandoId = null;
+
+function carregarOpcoesEspecialidades(idsMarcados = []) {
   const dados = banco.ler();
   const picker = document.getElementById('picker-especialidades');
   picker.innerHTML = dados.especialidades.length > 0
     ? dados.especialidades.map(e => `
         <label class="opcao-especialidade">
-          <input type="checkbox" name="especialidade_check" value="${e.id}">
+          <input type="checkbox" name="especialidade_check" value="${e.id}" ${idsMarcados.includes(e.id) ? 'checked' : ''}>
           ${e.nome}
         </label>
       `).join('')
@@ -56,7 +58,10 @@ function carregarTabelaSalas() {
           <td class="num">${s.capacidade_por_turno} vagas/turno</td>
           <td>${badgesEsp}</td>
           <td>${s.status === 'manutencao' ? `<span class="pill pill-vermelho">Manutenção</span>` : `<span class="pill pill-verde">Ativo</span>`}</td>
-          <td style="text-align:right"><button class="acao-icone" onclick="excluirSala(${s.id})">Excluir</button></td>
+          <td style="text-align:right">
+            <button class="acao-icone" onclick="editarSala(${s.id})">Editar</button>
+            <button class="acao-icone" onclick="excluirSala(${s.id})">Excluir</button>
+          </td>
         </tr>
       `;
     }).join('');
@@ -65,11 +70,46 @@ function carregarTabelaSalas() {
   document.getElementById('tabela-salas').innerHTML = html || `<tr><td class="vazio">Nenhum consultório encontrado.</td></tr>`;
 }
 
+function editarSala(id) {
+  const dados = banco.ler();
+  const s = dados.salas.find(x => x.id === id);
+  if (!s) return;
+  salaEditandoId = id;
+
+  const f = document.getElementById('form-sala');
+  f.nome_base.value = s.nome;
+  f.quantidade.value = 1;
+  f.quantidade.disabled = true;
+  f.localizacao.value = s.localizacao || '';
+  f.capacidade_por_turno.value = s.capacidade_por_turno || '';
+  f.status.value = s.status || 'ativo';
+  carregarOpcoesEspecialidades(s.especialidades_permitidas || []);
+
+  document.getElementById('botao-sala').textContent = 'Salvar edição';
+  document.getElementById('cancelar-edicao-sala').classList.remove('oculto');
+  f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelarEdicaoSala() {
+  salaEditandoId = null;
+  const f = document.getElementById('form-sala');
+  f.reset();
+  f.quantidade.disabled = false;
+  carregarOpcoesEspecialidades([]);
+  document.getElementById('botao-sala').textContent = 'Adicionar';
+  document.getElementById('cancelar-edicao-sala').classList.add('oculto');
+}
+
 async function excluirSala(id) {
-  if (!confirm('Excluir este consultório? Toda a grade dele também será removida.')) return;
+  const confirmou = await confirmarModal(`
+    <h3>Excluir consultório</h3>
+    <p>Excluir este consultório? Toda a grade dele também será removida.</p>
+  `, { textoConfirmar: 'Excluir' });
+  if (!confirmou) return;
   try {
     await api.excluirSala(id);
     await carregarDados();
+    if (salaEditandoId === id) cancelarEdicaoSala();
     carregarTabelaSalas();
   } catch (erro) {
     console.error(erro);
@@ -80,20 +120,49 @@ async function excluirSala(id) {
 document.getElementById('form-sala').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.target;
-  const quantidade = Math.max(1, Number(f.quantidade.value) || 1);
   const especialidadesPermitidas = Array.from(f.querySelectorAll('input[name="especialidade_check"]:checked'))
     .map(c => Number(c.value));
+  const botao = document.getElementById('botao-sala');
 
+  // ---- Modo edição: edita só o consultório selecionado ----
+  if (salaEditandoId) {
+    botao.disabled = true;
+    botao.textContent = 'Salvando...';
+    try {
+      await api.editarSala(salaEditandoId, {
+        nome: f.nome_base.value,
+        sala_espera: f.nome_base.value,
+        localizacao: f.localizacao.value || null,
+        capacidade_por_turno: f.capacidade_por_turno.value ? Number(f.capacidade_por_turno.value) : 16,
+        status: f.status.value || 'ativo',
+        especialidades_permitidas: especialidadesPermitidas
+      });
+      await carregarDados();
+      cancelarEdicaoSala();
+      carregarTabelaSalas();
+    } catch (erro) {
+      console.error(erro);
+      alert('Não consegui salvar a edição. Confere sua internet e tenta de novo.');
+    } finally {
+      botao.disabled = false;
+      botao.textContent = salaEditandoId ? 'Salvar edição' : 'Adicionar';
+    }
+    return;
+  }
+
+  // ---- Modo criação: pode criar várias de uma vez ----
+  const quantidade = Math.max(1, Number(f.quantidade.value) || 1);
   if (quantidade > 1) {
     const nomesPrevia = Array.from({ length: quantidade }, (_, i) => `${f.nome_base.value} - Consultório ${i + 1}`).join(', ');
-    const confirmou = confirm(`Isso vai criar ${quantidade} consultórios: ${nomesPrevia}. Confirma?`);
+    const confirmou = await confirmarModal(`
+      <h3>Criar vários consultórios</h3>
+      <p>Isso vai criar ${quantidade} consultórios: <strong>${nomesPrevia}</strong>. Confirma?</p>
+    `, { textoConfirmar: 'Criar' });
     if (!confirmou) return;
   }
 
-  const botao = f.querySelector('button[type=submit]');
   botao.disabled = true;
   botao.textContent = 'Salvando...';
-
   try {
     for (let i = 1; i <= quantidade; i++) {
       await api.criarSala({

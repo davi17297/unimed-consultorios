@@ -144,6 +144,8 @@
   tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
   tbody tr:last-child td { border-bottom: none; }
   tbody tr:hover td { background: var(--bg); }
+  tr.linha-clicavel { cursor: pointer; }
+  tr.linha-clicavel:hover td { background: var(--green-50); }
   .nome-sala { font-weight: 600; color: var(--ink-900); }
   .nome-sala .sub { font-weight: 400; color: var(--ink-400); font-size: 12px; display: block; margin-top: 1px; }
   .barra-mini-track { background: var(--border); border-radius: 5px; overflow: hidden; height: 6px; width: 90px; display: inline-block; vertical-align: middle; margin-right: 8px; }
@@ -181,7 +183,7 @@
     color: var(--border-strong);
   }
   table.grade td.celula-livre { background: var(--green-50); border-color: #DCEFE0; }
-  table.grade td.celula-ocupada { background: var(--red-100); border-color: #F5B8CE; }
+  table.grade td.celula-ocupada { background: var(--red-100); border-color: #F5B8CE; cursor: grab; }
   table.grade td.celula-livre:hover { background: var(--green-100); }
   table.grade td.celula-ocupada:hover { background: #FAD2E1; }
 

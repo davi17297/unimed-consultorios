@@ -101,11 +101,12 @@ function buscarAgendaMedico() {
     <div class="card card-pad">
       <h3>Agenda de ${formatarNomeMedico(medico)}</h3>
       ${ocorrencias.length > 0 ? `
+        <p style="font-size:12px;color:var(--ink-400);margin:0 0 10px">Clica numa linha pra ir direto pro consultório na grade.</p>
         <table>
           <thead><tr><th>Consultório</th><th>Local</th><th>Dia</th><th>Turno</th><th>Obs.</th></tr></thead>
           <tbody>
             ${ocorrencias.map(o => `
-              <tr>
+              <tr class="linha-clicavel" onclick="irParaConsultorio(${o.sala.id})">
                 <td>${o.sala.nome}</td>
                 <td>${o.sala.localizacao || ''}</td>
                 <td>${o.dia}</td>
@@ -118,6 +119,16 @@ function buscarAgendaMedico() {
       ` : `<p class="vazio">Esse médico não está escalado em nenhum horário ainda.</p>`}
     </div>
   `;
+}
+
+// Leva direto pro consultório escolhido na agenda de um médico (ignora o
+// filtro de local atual, pra garantir que o consultório apareça no seletor)
+function irParaConsultorio(salaId) {
+  document.getElementById('seletor-local').value = '';
+  carregarSeletorSala();
+  document.getElementById('seletor-sala').value = salaId;
+  renderizarGrade();
+  document.getElementById('area-grade').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderizarGrade() {
@@ -200,7 +211,10 @@ function renderizarGrade() {
       }
 
       return `
-        <td class="${ocupada ? 'celula-ocupada' : 'celula-livre'}">
+        <td class="${ocupada ? 'celula-ocupada' : 'celula-livre'}"
+            ${ocupada ? `draggable="true" ondragstart="aoArrastarCelula(event, '${chave}')"` : ''}
+            ondragover="event.preventDefault()"
+            ondrop="aoSoltarCelula(event, '${chave}')">
           ${selectHtml}
           <input class="obs" placeholder="horário/obs" value="${celula.obs || ''}" ${fechado ? 'disabled' : ''}
                  onchange="atualizarCelula('${chave}', null, this.value)">
@@ -283,6 +297,55 @@ async function reabrirAgenda(fechamentoId) {
   } catch (erro) {
     console.error(erro);
     alert('Não consegui reabrir. Confere sua internet e tenta de novo.');
+  }
+}
+
+// ---------- Arrastar e soltar médico entre horários ----------
+function aoArrastarCelula(event, chaveOrigem) {
+  event.dataTransfer.setData('text/plain', chaveOrigem);
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+async function aoSoltarCelula(event, chaveDestino) {
+  event.preventDefault();
+  const chaveOrigem = event.dataTransfer.getData('text/plain');
+  if (!chaveOrigem || chaveOrigem === chaveDestino) return;
+
+  const dados = banco.ler();
+  const celulaOrigem = dados.escala[chaveOrigem];
+  if (!celulaOrigem || !celulaOrigem.medico_id) return; // nada de verdade pra mover
+
+  const [salaOrigemId, diaOrigem, turnoOrigem] = chaveOrigem.split('|');
+  const [salaDestinoId, diaDestino, turnoDestino] = chaveDestino.split('|');
+
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  if (fechamentoNaData(dados, Number(salaDestinoId), diaDestino, turnoDestino, hojeISO)) {
+    alert('Esse horário está com a agenda fechada. Reabre antes de mover alguém pra lá.');
+    return;
+  }
+
+  const celulaDestino = dados.escala[chaveDestino] || { medico_id: '', obs: '' };
+  const medicoOrigem = dados.medicos.find(m => m.id === celulaOrigem.medico_id);
+  const medicoDestino = celulaDestino.medico_id ? dados.medicos.find(m => m.id === celulaDestino.medico_id) : null;
+
+  const mensagem = medicoDestino
+    ? `<strong>${formatarNomeMedico(medicoOrigem)}</strong> vai pra esse horário, e <strong>${formatarNomeMedico(medicoDestino)}</strong> vai pro horário de onde ${formatarNomeMedico(medicoOrigem)} estava.`
+    : `Mover <strong>${formatarNomeMedico(medicoOrigem)}</strong> pra esse horário (${diaDestino}, ${turnoDestino})? O horário de origem (${diaOrigem}, ${turnoOrigem}) fica livre.`;
+
+  const confirmou = await confirmarModal(
+    `<h3>${medicoDestino ? 'Trocar horários' : 'Mover médico'}</h3><p>${mensagem}</p>`,
+    { textoConfirmar: medicoDestino ? 'Trocar' : 'Mover' }
+  );
+  if (!confirmou) return;
+
+  try {
+    await api.atualizarCelula(salaDestinoId, diaDestino, turnoDestino, celulaOrigem.medico_id, celulaOrigem.obs || '');
+    await api.atualizarCelula(salaOrigemId, diaOrigem, turnoOrigem, celulaDestino.medico_id || null, celulaDestino.obs || '');
+    await carregarDados();
+    renderizarGrade();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui mover. Confere sua internet e tenta de novo.');
   }
 }
 

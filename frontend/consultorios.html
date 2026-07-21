@@ -55,19 +55,21 @@
           <form class="inline" id="form-sala">
             <input name="nome_base" placeholder="ex: Sala de Espera 2" required style="min-width:200px">
             <input name="quantidade" type="number" min="1" value="1" placeholder="Qtd. de salas" style="max-width:120px" onwheel="this.blur()">
-            <input type="hidden" name="localizacao" value="">
-            <input type="hidden" name="capacidade_por_turno" value="16">
+            <input name="localizacao" placeholder="Localização (opcional)" style="max-width:160px">
+            <input name="capacidade_por_turno" type="number" min="1" placeholder="Pacientes/turno (16)" style="max-width:150px" onwheel="this.blur()">
             <select name="status">
               <option value="ativo">Ativo</option>
               <option value="manutencao">Em manutenção</option>
             </select>
             <div class="picker-especialidades" id="picker-especialidades"></div>
-            <button class="btn btn-primario" type="submit">Adicionar</button>
+            <button class="btn btn-primario" type="submit" id="botao-sala">Adicionar</button>
+            <button type="button" class="btn oculto" id="cancelar-edicao-sala" onclick="cancelarEdicaoSala()">Cancelar</button>
           </form>
           <p style="font-size:12px;color:var(--ink-400);margin-top:8px">
             Marque as especialidades que esse consultório atende. Se não marcar nenhuma,
             o consultório aceita médico de qualquer especialidade. Cadastre as especialidades em
-            "Profissionais" antes, se a lista abaixo estiver vazia.
+            "Profissionais" antes, se a lista abaixo estiver vazia. Ao <strong>editar</strong> um consultório
+            já existente, o campo "Qtd. de salas" não se aplica (edita só aquele).
           </p>
         </div>
         <div class="card tabela-card">

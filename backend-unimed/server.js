@@ -177,6 +177,40 @@ app.post('/api/salas', async (req, res) => {
   }
 });
 
+app.put('/api/salas/:id', async (req, res) => {
+  const { nome, sala_espera, localizacao, capacidade_por_turno, status, especialidades_permitidas } = req.body;
+  if (!nome) return res.status(400).json({ erro: 'nome é obrigatório' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE salas SET nome=$1, sala_espera=$2, localizacao=$3, capacidade_por_turno=COALESCE($4,16), status=COALESCE($5,'ativo')
+       WHERE id=$6 RETURNING *`,
+      [nome, sala_espera || null, localizacao || null, capacidade_por_turno || null, status || null, req.params.id]
+    );
+    const sala = rows[0];
+
+    await client.query('DELETE FROM sala_especialidades WHERE sala_id=$1', [req.params.id]);
+    const ids = Array.isArray(especialidades_permitidas) ? especialidades_permitidas : [];
+    for (const especialidadeId of ids) {
+      await client.query(
+        'INSERT INTO sala_especialidades (sala_id, especialidade_id) VALUES ($1,$2)',
+        [req.params.id, especialidadeId]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ ...sala, especialidades_permitidas: ids });
+  } catch (erro) {
+    await client.query('ROLLBACK');
+    console.error(erro);
+    res.status(500).json({ erro: 'Erro ao editar consultório' });
+  } finally {
+    client.release();
+  }
+});
+
 app.delete('/api/salas/:id', async (req, res) => {
   try {
     await pool.query('DELETE FROM salas WHERE id=$1', [req.params.id]);
