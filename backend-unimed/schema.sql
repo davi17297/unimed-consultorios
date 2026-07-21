@@ -69,6 +69,15 @@ CREATE TABLE IF NOT EXISTS reposicoes (
 -- padrão do médico (ex: atendeu mais gente que o normal nessa reposição)
 ALTER TABLE reposicoes ADD COLUMN IF NOT EXISTS pacientes_atendidos INTEGER;
 
+-- Trava de segurança: nunca deixa existir duas reposições pro MESMO
+-- consultório, na MESMA data e turno — impede o double-booking mesmo se
+-- a tela deixar passar por algum bug.
+DO $$ BEGIN
+  ALTER TABLE reposicoes ADD CONSTRAINT reposicoes_sala_data_turno_unico UNIQUE (sala_id, data, turno);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_reposicoes_data ON reposicoes(data);
 
 -- "Foto" mensal da ocupação de cada consultório, tirada manualmente

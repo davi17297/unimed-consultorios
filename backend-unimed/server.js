@@ -301,6 +301,9 @@ app.post('/api/reposicoes', async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (erro) {
+    if (erro.code === '23505') { // violação da trava UNIQUE (sala+data+turno)
+      return res.status(409).json({ erro: 'Esse consultório já tem uma reposição registrada nesse mesmo dia e turno.' });
+    }
     console.error(erro);
     res.status(500).json({ erro: 'Erro ao adicionar reposição' });
   }
@@ -319,6 +322,9 @@ app.put('/api/reposicoes/:id', async (req, res) => {
     );
     res.json(rows[0]);
   } catch (erro) {
+    if (erro.code === '23505') {
+      return res.status(409).json({ erro: 'Esse consultório já tem uma reposição registrada nesse mesmo dia e turno.' });
+    }
     console.error(erro);
     res.status(500).json({ erro: 'Erro ao editar reposição' });
   }

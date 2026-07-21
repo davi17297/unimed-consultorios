@@ -136,7 +136,12 @@ async function chamarApi(caminho, metodo, corpo) {
     body: corpo !== undefined ? JSON.stringify(corpo) : undefined
   });
   if (!resposta.ok) {
-    throw new Error(`Erro ao chamar a API (${metodo} ${caminho}): ${resposta.status}`);
+    let mensagem = `Erro ao chamar a API (${metodo} ${caminho}): ${resposta.status}`;
+    try {
+      const corpoErro = await resposta.json();
+      if (corpoErro && corpoErro.erro) mensagem = corpoErro.erro;
+    } catch (e) { /* resposta sem corpo JSON, mantém a mensagem genérica */ }
+    throw new Error(mensagem);
   }
   if (resposta.status === 204) return null;
   return resposta.json();

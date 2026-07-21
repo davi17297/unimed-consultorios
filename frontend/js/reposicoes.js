@@ -113,7 +113,7 @@ document.getElementById('form-reposicao').addEventListener('submit', async (e) =
     carregarResumoEtabela();
   } catch (erro) {
     console.error(erro);
-    alert('Não consegui salvar essa reposição. Confere sua internet e tenta de novo.');
+    alert(erro.message || 'Não consegui salvar essa reposição. Confere sua internet e tenta de novo.');
   } finally {
     botao.disabled = false;
     botao.textContent = reposicaoEditandoId ? 'Salvar edição' : 'Registrar';
