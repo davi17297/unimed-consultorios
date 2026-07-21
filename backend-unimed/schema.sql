@@ -49,6 +49,14 @@ CREATE TABLE IF NOT EXISTS escala (
   UNIQUE (sala_id, dia_semana, turno)
 );
 
+-- Quantidade de pacientes customizada PRA ESSE ENCAIXE ESPECÍFICO (esse
+-- consultório, nesse dia da semana, nesse turno), editada direto na tela
+-- de Disponibilidade (ícone de lápis ao lado do médico). Quando preenchida,
+-- vale MAIS que o "pacientes_por_turno" cadastrado no médico e mais que o
+-- padrão do consultório — é a exceção mais específica de todas. Quando
+-- fica vazia (null), volta a valer a regra de sempre (médico > consultório).
+ALTER TABLE escala ADD COLUMN IF NOT EXISTS pacientes_por_turno INTEGER;
+
 CREATE INDEX IF NOT EXISTS idx_escala_sala ON escala(sala_id);
 CREATE INDEX IF NOT EXISTS idx_medicos_especialidade ON medicos(especialidade_id);
 
