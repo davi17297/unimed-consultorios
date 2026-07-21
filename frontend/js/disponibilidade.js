@@ -17,7 +17,7 @@ function carregarSeletorLocal() {
 }
 
 // O seletor de Consultório respeita o filtro de local escolhido acima.
-function carregarSeletorSala() {
+function carregarSeletorSala(voltarParaTodos) {
   const dados = banco.ler();
   const localFiltro = document.getElementById('seletor-local').value;
   const seletor = document.getElementById('seletor-sala');
@@ -40,7 +40,7 @@ function carregarSeletorSala() {
     grupos.get(grupo).push(s);
   });
 
-  let html = '';
+  let html = '<option value="__todos__">— Ver todos (rolar a tela) —</option>';
   grupos.forEach((salasDoGrupo, nomeGrupo) => {
     html += `<optgroup label="${nomeGrupo}">`;
     html += salasDoGrupo.map(s => {
@@ -51,10 +51,10 @@ function carregarSeletorSala() {
   });
 
   seletor.innerHTML = html;
-  if (valorAtual && salasFiltradas.some(s => String(s.id) === valorAtual)) {
+  if (!voltarParaTodos && valorAtual && salasFiltradas.some(s => String(s.id) === valorAtual)) {
     seletor.value = valorAtual;
   } else {
-    seletor.value = salasFiltradas[0].id;
+    seletor.value = '__todos__';
   }
 }
 
@@ -131,16 +131,10 @@ function irParaConsultorio(salaId) {
   document.getElementById('area-grade').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function renderizarGrade() {
-  const dados = banco.ler();
-  const salaId = document.getElementById('seletor-sala').value;
-  const area = document.getElementById('area-grade');
-
-  if (!salaId) {
-    area.innerHTML = `<div class="card card-pad vazio">Nenhum consultório selecionado. Cadastre um em "Consultórios".</div>`;
-    return;
-  }
-  const sala = dados.salas.find(s => String(s.id) === String(salaId));
+// Monta o card completo (resumo + grade) de UM consultório. Extraído em
+// função própria pra poder ser chamada tanto pra um consultório só quanto
+// em loop, quando o modo "Ver todos" estiver ativo.
+function construirCardConsultorio(dados, sala) {
   const calc = calcularSala(dados, sala);
   const c = corPorOcupacao(calc.percentual);
 
@@ -148,9 +142,6 @@ function renderizarGrade() {
   const medicosFiltradosPorEspecialidade = restricoes.length > 0
     ? dados.medicos.filter(m => restricoes.includes(m.especialidade_id))
     : dados.medicos;
-  // Trava de segurança: se o filtro não achar NENHUM médico (ex: os médicos
-  // importados ainda não têm especialidade cadastrada), mostra todos em vez
-  // de deixar o dropdown vazio e sem saída.
   const medicosPermitidosBase = medicosFiltradosPorEspecialidade.length > 0
     ? medicosFiltradosPorEspecialidade
     : dados.medicos;
@@ -178,8 +169,6 @@ function renderizarGrade() {
         `<option value="${m.id}" ${String(celula.medico_id) === String(m.id) ? 'selected' : ''}>${formatarNomeMedico(m)}</option>`
       ).join('');
 
-      // Reposições futuras que caem nesse mesmo consultório/dia da semana/turno —
-      // avisa pra não rolar de escalar alguém fixo em cima de uma reposição já marcada.
       const hojeISO = new Date().toISOString().slice(0, 10);
       const reposicoesDaCelula = (dados.reposicoes || []).filter(r =>
         r.sala_id === sala.id && r.turno === turno && r.data >= hojeISO && diaDaSemanaDeData(r.data) === dia
@@ -226,8 +215,8 @@ function renderizarGrade() {
     return `<tr><td class="dia-col">${dia}</td>${celulasHtml}</tr>`;
   }).join('');
 
-  area.innerHTML = `
-    <div class="card card-pad">
+  return `
+    <div class="card card-pad" style="margin-bottom:16px">
       <h3 style="margin-bottom:2px">${sala.nome}</h3>
       <p style="font-size:12px;color:var(--ink-400);margin:0 0 12px">Aceita: ${nomesEspSala}</p>
       <div class="resumo-grade">
@@ -248,6 +237,59 @@ function renderizarGrade() {
       </table>
     </div>
   `;
+}
+
+// Ordena as salas do mesmo jeito que a tela de Consultórios (agrupado por
+// Sala de Espera). Usado no modo "Ver todos".
+function ordenarSalasPorGrupo(salas) {
+  const grupos = new Map();
+  salas.forEach(s => {
+    const grupo = obterGrupoSalaEspera(s);
+    if (!grupos.has(grupo)) grupos.set(grupo, []);
+    grupos.get(grupo).push(s);
+  });
+  const resultado = [];
+  grupos.forEach((salasDoGrupo, nomeGrupo) => {
+    resultado.push({ tituloGrupo: nomeGrupo, salas: salasDoGrupo });
+  });
+  return resultado;
+}
+
+function renderizarGrade() {
+  const dados = banco.ler();
+  const salaId = document.getElementById('seletor-sala').value;
+  const area = document.getElementById('area-grade');
+
+  if (!salaId) {
+    area.innerHTML = `<div class="card card-pad vazio">Nenhum consultório selecionado. Cadastre um em "Consultórios".</div>`;
+    return;
+  }
+
+  // ---- Modo "Ver todos": empilha a grade de todos os consultórios do
+  // filtro de local escolhido, na mesma ordem/agrupamento de Consultórios ----
+  if (salaId === '__todos__') {
+    const localFiltro = document.getElementById('seletor-local').value;
+    const salasFiltradas = localFiltro ? dados.salas.filter(s => s.localizacao === localFiltro) : dados.salas;
+
+    if (salasFiltradas.length === 0) {
+      area.innerHTML = `<div class="card card-pad vazio">Nenhum consultório nesse local.</div>`;
+      return;
+    }
+
+    const gruposOrdenados = ordenarSalasPorGrupo(salasFiltradas);
+    area.innerHTML = gruposOrdenados.map(g => `
+      <div class="titulo-grupo-grade">${g.tituloGrupo}</div>
+      ${g.salas.map(s => construirCardConsultorio(dados, s)).join('')}
+    `).join('');
+    return;
+  }
+
+  const sala = dados.salas.find(s => String(s.id) === String(salaId));
+  if (!sala) {
+    area.innerHTML = `<div class="card card-pad vazio">Esse consultório não existe mais. Escolhe outro.</div>`;
+    return;
+  }
+  area.innerHTML = construirCardConsultorio(dados, sala);
 }
 
 // Agora essa função fala com o servidor. Ela recebe a chave da célula
@@ -369,7 +411,7 @@ async function atualizarCelula(chave, medicoId, obs) {
 
 function carregarPaginaDisponibilidade() {
   carregarSeletorLocal();
-  carregarSeletorSala();
+  carregarSeletorSala(true);
   carregarListaMedicosBusca();
   renderizarGrade();
 }
@@ -379,7 +421,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await carregarDados();
     carregarPaginaDisponibilidade();
     document.getElementById('seletor-local').addEventListener('change', () => {
-      carregarSeletorSala();
+      carregarSeletorSala(true);
       renderizarGrade();
     });
     document.getElementById('seletor-sala').addEventListener('change', renderizarGrade);
@@ -392,5 +434,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // window.atualizarPagina é chamado pelo botão "Atualizar" (via layout.js)
-// DEPOIS que ele já buscou os dados novos — aqui é só re-render.
-window.atualizarPagina = carregarPaginaDisponibilidade;
+// DEPOIS que ele já buscou os dados novos — aqui é só re-render, sem
+// resetar o que a pessoa estava vendo (mantém o consultório escolhido).
+window.atualizarPagina = () => {
+  carregarSeletorLocal();
+  carregarSeletorSala(false);
+  carregarListaMedicosBusca();
+  renderizarGrade();
+};

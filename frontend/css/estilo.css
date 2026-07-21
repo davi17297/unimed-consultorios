@@ -164,6 +164,11 @@
 
   /* ---------- Grade de disponibilidade (planilha) ---------- */
   .legenda-grade { display: flex; gap: 18px; margin-bottom: 12px; font-size: 12px; color: var(--ink-600); }
+  .titulo-grupo-grade {
+    font-size: 13px; font-weight: 700; color: var(--green-900); text-transform: uppercase;
+    letter-spacing: .03em; margin: 24px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--green-700);
+  }
+  .titulo-grupo-grade:first-child { margin-top: 0; }
   .legenda-grade .item { display: flex; align-items: center; gap: 6px; }
   .legenda-grade .amostra { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
   .legenda-grade .amostra.livre { background: var(--green-100); border: 1px solid #BFE6D0; }
