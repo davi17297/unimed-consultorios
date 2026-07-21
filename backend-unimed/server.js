@@ -43,7 +43,8 @@ app.get('/api/dados', async (req, res) => {
     escalaRaw.rows.forEach(e => {
       escala[`${e.sala_id}|${e.dia_semana}|${e.turno}`] = {
         medico_id: e.medico_id,
-        obs: e.observacao || ''
+        obs: e.observacao || '',
+        pacientes_por_turno: e.pacientes_por_turno || null
       };
     });
 
@@ -225,27 +226,29 @@ app.delete('/api/salas/:id', async (req, res) => {
 // Upsert de uma célula da grade (mesmo comportamento do atualizarCelula do frontend):
 // se não tiver médico nem observação, a linha é removida (encaixe fica "livre").
 app.put('/api/escala', async (req, res) => {
-  const { sala_id, dia_semana, turno, medico_id, obs } = req.body;
+  const { sala_id, dia_semana, turno, medico_id, obs, pacientes_por_turno } = req.body;
   if (!sala_id || !dia_semana || !turno) {
     return res.status(400).json({ erro: 'sala_id, dia_semana e turno são obrigatórios' });
   }
 
+  const temPacientesCustomizado = pacientes_por_turno !== null && pacientes_por_turno !== undefined;
+
   try {
-    if (!medico_id && !obs) {
+    if (!medico_id && !obs && !temPacientesCustomizado) {
       await pool.query(
         'DELETE FROM escala WHERE sala_id=$1 AND dia_semana=$2 AND turno=$3',
         [sala_id, dia_semana, turno]
       );
-      return res.json({ sala_id, dia_semana, turno, medico_id: null, obs: '' });
+      return res.json({ sala_id, dia_semana, turno, medico_id: null, obs: '', pacientes_por_turno: null });
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO escala (sala_id, dia_semana, turno, medico_id, observacao)
-       VALUES ($1,$2,$3,$4,$5)
+      `INSERT INTO escala (sala_id, dia_semana, turno, medico_id, observacao, pacientes_por_turno)
+       VALUES ($1,$2,$3,$4,$5,$6)
        ON CONFLICT (sala_id, dia_semana, turno)
-       DO UPDATE SET medico_id = $4, observacao = $5
+       DO UPDATE SET medico_id = $4, observacao = $5, pacientes_por_turno = $6
        RETURNING *`,
-      [sala_id, dia_semana, turno, medico_id || null, obs || null]
+      [sala_id, dia_semana, turno, medico_id || null, obs || null, temPacientesCustomizado ? pacientes_por_turno : null]
     );
     res.json(rows[0]);
   } catch (erro) {

@@ -73,9 +73,11 @@ ALTER TABLE reposicoes ADD COLUMN IF NOT EXISTS pacientes_atendidos INTEGER;
 -- consultório, na MESMA data e turno — impede o double-booking mesmo se
 -- a tela deixar passar por algum bug.
 DO $$ BEGIN
-  ALTER TABLE reposicoes ADD CONSTRAINT reposicoes_sala_data_turno_unico UNIQUE (sala_id, data, turno);
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'reposicoes_sala_data_turno_unico'
+  ) THEN
+    ALTER TABLE reposicoes ADD CONSTRAINT reposicoes_sala_data_turno_unico UNIQUE (sala_id, data, turno);
+  END IF;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_reposicoes_data ON reposicoes(data);

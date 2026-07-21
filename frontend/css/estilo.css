@@ -222,6 +222,14 @@
   }
   .link-fechar { color: var(--red-600); }
   .link-reabrir { color: var(--green-700); margin-top: 3px; }
+  .link-editar-qtd { color: var(--ink-600); margin-top: 3px; }
+
+  .input-modal-numero {
+    width: 100%; margin-top: 4px; padding: 8px 10px; font-size: 14px; font-weight: 600;
+    border: 1px solid var(--border-strong); border-radius: 7px; color: var(--ink-900);
+    background: var(--surface);
+  }
+  .input-modal-numero:focus { outline: 2px solid var(--green-500); outline-offset: 1px; }
 
   /* ---------- Modal de confirmação ---------- */
   .modal-overlay {

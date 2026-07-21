@@ -70,3 +70,52 @@ function confirmarModal(mensagemHtml, opcoes = {}) {
     document.addEventListener('keydown', aoTeclar);
   });
 }
+
+// ============================================================
+// Modal pra editar um número (mesma cara do confirmarModal, mas com um
+// campo de valor). Uso: const novoValor = await editarNumeroModal(
+//   '<h3>Título</h3><p>Mensagem...</p>', valorAtual
+// ); -- devolve o número digitado, ou null se a pessoa cancelar.
+// ============================================================
+function editarNumeroModal(mensagemHtml, valorAtual, opcoes = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-caixa">
+        <div class="modal-corpo">
+          ${mensagemHtml}
+          <input type="number" min="0" step="1" id="modal-input-numero" class="input-modal-numero" value="${valorAtual}">
+        </div>
+        <div class="modal-acoes">
+          <button class="btn" id="modal-botao-cancelar">${opcoes.textoCancelar || 'Cancelar'}</button>
+          <button class="btn btn-primario" id="modal-botao-confirmar">${opcoes.textoConfirmar || 'Salvar'}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const campo = overlay.querySelector('#modal-input-numero');
+    campo.focus();
+    campo.select();
+
+    const remover = (resultado) => {
+      overlay.remove();
+      document.removeEventListener('keydown', aoTeclar);
+      resolve(resultado);
+    };
+    const lerValor = () => {
+      const valor = Number(campo.value);
+      return (campo.value === '' || Number.isNaN(valor) || valor < 0) ? null : valor;
+    };
+    const aoTeclar = (e) => {
+      if (e.key === 'Escape') remover(null);
+      if (e.key === 'Enter') remover(lerValor());
+    };
+
+    overlay.querySelector('#modal-botao-cancelar').addEventListener('click', () => remover(null));
+    overlay.querySelector('#modal-botao-confirmar').addEventListener('click', () => remover(lerValor()));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) remover(null); });
+    document.addEventListener('keydown', aoTeclar);
+  });
+}

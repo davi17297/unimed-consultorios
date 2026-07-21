@@ -159,8 +159,8 @@ const api = {
   criarSala: (dadosSala) => chamarApi('/api/salas', 'POST', dadosSala),
   editarSala: (id, dadosSala) => chamarApi(`/api/salas/${id}`, 'PUT', dadosSala),
   excluirSala: (id) => chamarApi(`/api/salas/${id}`, 'DELETE'),
-  atualizarCelula: (sala_id, dia_semana, turno, medico_id, obs) =>
-    chamarApi('/api/escala', 'PUT', { sala_id, dia_semana, turno, medico_id, obs }),
+  atualizarCelula: (sala_id, dia_semana, turno, medico_id, obs, pacientes_por_turno) =>
+    chamarApi('/api/escala', 'PUT', { sala_id, dia_semana, turno, medico_id, obs, pacientes_por_turno: (pacientes_por_turno ?? null) }),
   criarReposicao: (medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos) =>
     chamarApi('/api/reposicoes', 'POST', { medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos }),
   editarReposicao: (id, medico_id, sala_id, data, turno, motivo, observacao, pacientes_atendidos) =>
@@ -190,6 +190,17 @@ function capacidadeDoMedico(medico, sala) {
   return (medico && medico.pacientes_por_turno) ? Number(medico.pacientes_por_turno) : vagasPadrao;
 }
 
+// Quantidade de pacientes de UM ENCAIXE ESPECÍFICO (esse consultório,
+// nesse dia, nesse turno). Se a célula tiver uma quantidade customizada
+// (editada na tela de Disponibilidade), ela é a que vale — senão cai na
+// regra de sempre (médico > padrão do consultório).
+function capacidadeDaCelula(celula, medico, sala) {
+  if (celula && celula.pacientes_por_turno !== null && celula.pacientes_por_turno !== undefined) {
+    return Number(celula.pacientes_por_turno);
+  }
+  return capacidadeDoMedico(medico, sala);
+}
+
 // ---------- CÁLCULO POR SALA ----------
 // Monta "Dr. Fulano" / "Dra. Joana" a partir do nome + título cadastrados,
 // sem duplicar o título se a pessoa já tiver digitado ele dentro do nome.
@@ -217,11 +228,11 @@ function fechamentoAtivo(dados, salaId, dia, turno) {
   return fechamentoNaData(dados, salaId, dia, turno, hojeISO);
 }
 
-// Instalada/Atual agora somam a capacidade REAL de cada horário:
-// se tem médico marcado e ele tem "pacientes_por_turno" cadastrado, usa esse
-// número; senão (ou se o horário está livre) usa o padrão do consultório.
-// Horário com fechamento de agenda ativo conta como livre, mesmo que a
-// escala fixa ainda tenha um médico marcado ali.
+// Instalada/Atual agora somam a capacidade REAL de cada horário, na ordem:
+// 1) quantidade customizada desse encaixe específico (editada na tela de
+// Disponibilidade); 2) "pacientes_por_turno" cadastrado no médico; 3) padrão
+// do consultório. Horário com fechamento de agenda ativo conta como livre,
+// mesmo que a escala fixa ainda tenha um médico marcado ali.
 function calcularSala(dados, sala) {
   let ocupados = 0;
   let instalada = 0;
@@ -235,7 +246,7 @@ function calcularSala(dados, sala) {
       const celula = dados.escala[chaveCelula(sala.id, dia, turno)];
       const fechado = fechamentoAtivo(dados, sala.id, dia, turno);
       const medico = (celula && celula.medico_id && !fechado) ? dados.medicos.find(m => m.id === celula.medico_id) : null;
-      const vagasDesseHorario = (medico && medico.pacientes_por_turno) ? Number(medico.pacientes_por_turno) : vagasPadrao;
+      const vagasDesseHorario = medico ? capacidadeDaCelula(celula, medico, sala) : vagasPadrao;
 
       instalada += vagasDesseHorario;
       if (medico) {

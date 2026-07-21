@@ -158,6 +158,8 @@ function construirCardConsultorio(dados, sala) {
       const celula = dados.escala[chave] || { medico_id: '', obs: '' };
       const fechado = fechamentoAtivo(dados, sala.id, dia, turno);
       const ocupada = !!celula.medico_id && !fechado;
+      const medicoDaCelula = celula.medico_id ? dados.medicos.find(m => String(m.id) === String(celula.medico_id)) : null;
+      const qtdPacientesDoEncaixe = medicoDaCelula ? capacidadeDaCelula(celula, medicoDaCelula, sala) : null;
 
       let medicosPermitidos = medicosPermitidosBase;
       if (celula.medico_id && !medicosPermitidos.some(m => String(m.id) === String(celula.medico_id))) {
@@ -195,7 +197,8 @@ function construirCardConsultorio(dados, sala) {
           </select>
         `;
         extraHtml = ocupada
-          ? `<button type="button" class="link-fechar" onclick="fecharAgenda(${sala.id}, '${dia}', '${turno}', ${celula.medico_id})">🔒 Fechar 1 semana</button>`
+          ? `<button type="button" class="link-editar-qtd" onclick="editarQuantidadePacientes('${chave}')">✏️ ${qtdPacientesDoEncaixe} pacientes</button>
+             <button type="button" class="link-fechar" onclick="fecharAgenda(${sala.id}, '${dia}', '${turno}', ${celula.medico_id})">🔒 Fechar 1 semana</button>`
           : '';
       }
 
@@ -381,8 +384,8 @@ async function aoSoltarCelula(event, chaveDestino) {
   if (!confirmou) return;
 
   try {
-    await api.atualizarCelula(salaDestinoId, diaDestino, turnoDestino, celulaOrigem.medico_id, celulaOrigem.obs || '');
-    await api.atualizarCelula(salaOrigemId, diaOrigem, turnoOrigem, celulaDestino.medico_id || null, celulaDestino.obs || '');
+    await api.atualizarCelula(salaDestinoId, diaDestino, turnoDestino, celulaOrigem.medico_id, celulaOrigem.obs || '', celulaOrigem.pacientes_por_turno ?? null);
+    await api.atualizarCelula(salaOrigemId, diaOrigem, turnoOrigem, celulaDestino.medico_id || null, celulaDestino.obs || '', celulaDestino.pacientes_por_turno ?? null);
     await carregarDados();
     renderizarGrade();
   } catch (erro) {
@@ -391,21 +394,58 @@ async function aoSoltarCelula(event, chaveDestino) {
   }
 }
 
-async function atualizarCelula(chave, medicoId, obs) {
+async function atualizarCelula(chave, medicoId, obs, pacientesPorTurno) {
   const dados = banco.ler();
-  const atual = dados.escala[chave] || { medico_id: '', obs: '' };
+  const atual = dados.escala[chave] || { medico_id: '', obs: '', pacientes_por_turno: null };
   const novoMedicoId = medicoId !== null ? (medicoId || null) : atual.medico_id;
   const novoObs = obs !== null ? obs : atual.obs;
+  // Se o médico do horário mudou (por essa via, não pela edição de quantidade),
+  // a quantidade customizada antiga não faz mais sentido — some junto.
+  const trocouMedico = medicoId !== null && String(medicoId || '') !== String(atual.medico_id || '');
+  const novoPacientes = pacientesPorTurno !== undefined
+    ? pacientesPorTurno
+    : (trocouMedico ? null : atual.pacientes_por_turno);
   const [salaId, dia, turno] = chave.split('|');
 
   try {
-    await api.atualizarCelula(salaId, dia, turno, novoMedicoId || null, novoObs || '');
+    await api.atualizarCelula(salaId, dia, turno, novoMedicoId || null, novoObs || '', novoPacientes ?? null);
     await carregarDados();
     renderizarGrade();
   } catch (erro) {
     console.error(erro);
     alert('Não consegui salvar essa alteração. Confere sua internet e tenta de novo.');
     renderizarGrade(); // volta a mostrar o que realmente está salvo
+  }
+}
+
+// Editar, direto na tela de Disponibilidade, quantos pacientes aquele
+// MÉDICO ESPECÍFICO vai atender NAQUELE horário específico (sala+dia+turno).
+// Isso grava um valor customizado só pra esse encaixe (tabela escala),
+// que passa a valer mais que o "pacientes_por_turno" cadastrado no médico.
+async function editarQuantidadePacientes(chave) {
+  const dados = banco.ler();
+  const celula = dados.escala[chave];
+  if (!celula || !celula.medico_id) return;
+
+  const [salaId, dia, turno] = chave.split('|');
+  const sala = dados.salas.find(s => String(s.id) === String(salaId));
+  const medico = dados.medicos.find(m => m.id === celula.medico_id);
+  const valorAtual = capacidadeDaCelula(celula, medico, sala);
+
+  const novoValor = await editarNumeroModal(
+    `<h3>Quantidade de pacientes</h3><p>Quantos pacientes <strong>${formatarNomeMedico(medico)}</strong> vai atender nesse horário — <strong>${dia}, ${turno}</strong> — nesse consultório?</p>`,
+    valorAtual,
+    { textoConfirmar: 'Salvar' }
+  );
+  if (novoValor === null) return; // cancelou
+
+  try {
+    await api.atualizarCelula(salaId, dia, turno, celula.medico_id, celula.obs || '', novoValor);
+    await carregarDados();
+    renderizarGrade();
+  } catch (erro) {
+    console.error(erro);
+    alert('Não consegui salvar essa alteração. Confere sua internet e tenta de novo.');
   }
 }
 
