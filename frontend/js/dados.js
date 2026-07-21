@@ -66,6 +66,24 @@ function diaDaSemanaDeData(dataISO) {
   return mapa[data.getDay()] || null; // null = domingo
 }
 
+// Dado um dia da semana (ex: "Quarta-Feira") e a data de início de um
+// período de 7 dias corridos (ex: um fechamento de agenda), devolve a
+// data exata (ISO) em que esse dia da semana cai dentro desse período.
+// Usado pra saber em qual dia exato marcar uma reposição durante um
+// fechamento, sem a pessoa ter que calcular isso na mão.
+function dataDoDiaNoPeriodo(diaSemana, dataInicioISO) {
+  const apenasData = (dataInicioISO || '').toString().slice(0, 10);
+  const [ano, mes, dia] = apenasData.split('-').map(Number);
+  const inicio = new Date(ano, mes - 1, dia);
+  for (let i = 0; i <= 6; i++) {
+    const candidata = new Date(inicio);
+    candidata.setDate(candidata.getDate() + i);
+    const iso = `${candidata.getFullYear()}-${String(candidata.getMonth() + 1).padStart(2, '0')}-${String(candidata.getDate()).padStart(2, '0')}`;
+    if (diaDaSemanaDeData(iso) === diaSemana) return iso;
+  }
+  return null; // não deveria acontecer numa janela de 7 dias
+}
+
 function formatarDataBR(dataISO) {
   const apenasData = (dataISO || '').toString().slice(0, 10);
   const [ano, mes, dia] = apenasData.split('-');

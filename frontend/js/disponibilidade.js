@@ -182,12 +182,30 @@ function construirCardConsultorio(dados, sala) {
       let selectHtml, extraHtml;
       if (fechado) {
         const medicoFechado = dados.medicos.find(m => m.id === celula.medico_id);
+        const medicosParaRepor = medicosPermitidos.filter(m => String(m.id) !== String(celula.medico_id));
+        const opcoesRepor = medicosParaRepor.map(m =>
+          `<option value="${m.id}">${formatarNomeMedico(m)}</option>`
+        ).join('');
+        const idSeletorRepor = `select-repor-${chave.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
         selectHtml = `<select disabled><option>${formatarNomeMedico(medicoFechado)}</option></select>`;
         extraHtml = `
           <div class="aviso-fechamento">
             🔓 Fechado até ${formatarDataBR(fechado.data_fim)}<br>${formatarNomeMedico(medicoFechado)} volta depois
             <button type="button" class="link-reabrir" onclick="reabrirAgenda(${fechado.id})">Reabrir agora</button>
           </div>
+          ${reposicoesDaCelula.length === 0 ? `
+            <div class="repor-no-fechamento">
+              <select id="${idSeletorRepor}">
+                <option value="">Colocar médico aqui...</option>
+                ${opcoesRepor}
+              </select>
+              <button type="button" class="link-repor"
+                onclick="reporNoFechamento(${sala.id}, '${dia}', '${turno}', ${fechado.id}, document.getElementById('${idSeletorRepor}').value)">
+                + Repor aqui
+              </button>
+            </div>
+          ` : ''}
         `;
       } else {
         selectHtml = `
@@ -342,6 +360,44 @@ async function reabrirAgenda(fechamentoId) {
   } catch (erro) {
     console.error(erro);
     alert('Não consegui reabrir. Confere sua internet e tenta de novo.');
+  }
+}
+
+// Coloca outro médico direto nesse consultório enquanto a agenda do
+// médico de sempre está fechada — sem mexer no fechamento nem na escala
+// fixa (o médico fechado volta a aparecer aqui normalmente depois do
+// prazo). Isso cria uma Reposição pra data exata dessa semana, a mesma
+// coisa que dá pra fazer na tela de Reposições, só que direto daqui.
+async function reporNoFechamento(salaId, dia, turno, fechamentoId, medicoId) {
+  if (!medicoId) {
+    alert('Escolhe um médico no seletor pra colocar nesse horário.');
+    return;
+  }
+  const dados = banco.ler();
+  const fechamento = (dados.fechamentos || []).find(f => f.id === fechamentoId);
+  if (!fechamento) return;
+
+  const dataAlvo = dataDoDiaNoPeriodo(dia, fechamento.data_inicio);
+  if (!dataAlvo) {
+    alert('Não consegui calcular a data certa desse dia dentro do período fechado.');
+    return;
+  }
+
+  const medico = dados.medicos.find(m => m.id === Number(medicoId));
+  const confirmou = await confirmarModal(`
+    <h3>Repor nesse horário</h3>
+    <p>Colocar <strong>${formatarNomeMedico(medico)}</strong> nesse consultório em
+    <strong>${formatarDataBR(dataAlvo)}</strong> (${turno}), enquanto a agenda fixa estiver fechada?</p>
+  `, { textoConfirmar: 'Colocar aqui' });
+  if (!confirmou) return;
+
+  try {
+    await api.criarReposicao(Number(medicoId), salaId, dataAlvo, turno, 'Cobertura de fechamento', '', null);
+    await carregarDados();
+    renderizarGrade();
+  } catch (erro) {
+    console.error(erro);
+    alert(erro.message || 'Não consegui registrar essa reposição. Confere sua internet e tenta de novo.');
   }
 }
 
