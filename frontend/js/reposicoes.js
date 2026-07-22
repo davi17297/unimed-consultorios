@@ -110,6 +110,10 @@ document.getElementById('form-reposicao').addEventListener('submit', async (e) =
     await carregarDados();
     cancelarEdicaoReposicao();
     carregarFormularios();
+    // O filtro de mês do "Resumo do mês" acompanha o mês da reposição que
+    // acabou de ser salva — assim ela nunca fica escondida atrás de um
+    // filtro que ficou marcado num mês diferente.
+    document.getElementById('filtro-mes-reposicao').value = f.data.value.slice(0, 7);
     carregarResumoEtabela();
   } catch (erro) {
     console.error(erro);
